@@ -101,10 +101,10 @@ class VMAllocationService():
         self.expire_thread = None
         self.httpd_thread = None
         self.running = False
-        self.allocated_images = []
-        self.free_image_specs = []
-        self.configured_base_images = []
-        self.sync_lock = threading.Lock()
+        self.allocated_images = {}
+        self.mac_ip_records = {}
+        self.configured_base_images = {}
+        self.sync_lock = threading.RLock()
 
     def allocate_callback(self, base_image, expires, comment):
         print 'allocate callback: %s %d %s' % (base_image, expires, comment)
@@ -143,6 +143,45 @@ class VMAllocationService():
             # do work here
             self.sync_lock.release()
             time.sleep(5)
+
+    def define_mac_ip_pair(self, mac, ip):
+        self.sync_lock.acquire()
+        self.mac_ip_records[mac] = { 'ip_addr': ip, 'allocated': False }
+        self.sync_lock.release()
+
+    def allocate_mac(self):
+        ret_val = None
+        self.sync_lock.acquire()
+        mac_keys = keys(self.mac_ip_records)
+        for key in mac_keys:
+            if self.mac_ip_records['allocated'] == False:
+                self.mac_ip_records['allocated'] = True
+                ret_val = key
+                break
+        self.sync_lock.relese()
+        return ret_val
+
+    def deallocate_mac(self, mac):
+        self.sync_lock.acquire()
+        if self.mac_ip_records.has_key(mac):
+            self.mac_ip_records[mac]['allocated'] = False
+        self.sync_lock.release()
+
+    def find_ip_for_mac(self, mac):
+        ret_val = None
+        self.sync_lock.acquire()
+        if self.mac_ip_records.has_key(mac):
+            retval = self.mac_ip_records[mac]['ip_addr']
+        self.sync_lock.release()
+        return ret_val
+
+    def get_image_id(self, mac):
+        return 'dynamic_image_%s' % mac.replace(':', '')
+
+    def define_base_image(self, base_id, memory, image_filename):
+        self.sync_lock.acquire()
+        self.configured_base_images[base_id] = { 'base_id': base_id, 'memory': memory, 'image_filename': image_filename }
+        self.sync_lock.release()
 
     def run(self):
         self.stop()
