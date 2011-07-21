@@ -101,32 +101,47 @@ class VMAllocationService():
         self.expire_thread = None
         self.httpd_thread = None
         self.running = False
+        self.allocated_images = []
+        self.free_image_specs = []
+        self.configured_base_images = []
+        self.sync_lock = threading.Lock()
 
     def allocate_callback(self, base_image, expires, comment):
         print 'allocate callback: %s %d %s' % (base_image, expires, comment)
+        self.sync_lock.acquire()
         ret_val = { 'result': True, 'image_id': '%s-aa00bb11cc22' % base_image, 'ip_addr': '192.168.0.1', 'base_image': base_image, 'expires': expires }
         if comment is not None:
             ret_val['comment'] = comment
+        self.sync_lock.release()
         return ret_val
 
     def deallocate_callback(self, image_id):
         print 'deallocate callback: %s' % (image_id)
+        self.sync_lock.acquire()
         ret_val = { 'result': True, 'image_id': image_id, 'status': 'free' }
+        self.sync_lock.release()
         return ret_val
 
     def image_status_callback(self, image_id):
         print 'image status callback: %s' % (image_id)
+        self.sync_lock.acquire()
         ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': '192.168.0.1', 'base_image': 'xp', 'expires': 1122 }
+        self.sync_lock.release()
         return ret_val
         
     def status_callback(self):
         print 'status callback'
+        self.sync_lock.acquire()
         ret_val = { 'result': True, 'allocated_images': 13 }
+        self.sync_lock.release()
         return ret_val
 
     def expire_thread_loop(self):
         while self.running == True:
             print "expire_thread_loop"
+            self.sync_lock.acquire()
+            # do work here
+            self.sync_lock.release()
             time.sleep(5)
 
     def run(self):
