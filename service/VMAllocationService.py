@@ -20,7 +20,7 @@ class VMAllocationServiceRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 elif key == 'comment':
                     comment = value
             if base_image is not None and expires is not None:
-                json_reply = self.server.vm_allocation_service.allocate_callback(base_image, expires, comment)
+                json_reply = self.server.vm_allocation_service.allocate_image(base_image, expires, comment)
                 if json_reply is not None:
                     self.send_response(200)
                     self.send_header('Content-Type', 'text/plain')
@@ -38,7 +38,7 @@ class VMAllocationServiceRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 if key == 'image_id':
                     image_id = value
             if image_id is not None:
-                json_reply = self.server.vm_allocation_service.deallocate_callback(image_id)
+                json_reply = self.server.vm_allocation_service.deallocate_image(image_id)
                 if json_reply is not None:
                     self.send_response(200)
                     self.send_header('Content-Type', 'text/plain')
@@ -56,7 +56,7 @@ class VMAllocationServiceRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 if key == 'image_id':
                     image_id = value
             if image_id is not None:
-                json_reply = self.server.vm_allocation_service.image_status_callback(image_id)
+                json_reply = self.server.vm_allocation_service.image_status(image_id)
                 if json_reply is not None:
                     self.send_response(200)
                     self.send_header('Content-Type', 'text/plain')
@@ -69,7 +69,7 @@ class VMAllocationServiceRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.wfile.write('<html><body>Bad request</body></html>')
             return
         elif parsed.path == '/status':
-            json_reply = self.server.vm_allocation_service.status_callback()
+            json_reply = self.server.vm_allocation_service.status()
             if json_reply is not None:
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/plain')
@@ -106,30 +106,53 @@ class VMAllocationService():
         self.configured_base_images = {}
         self.sync_lock = threading.RLock()
 
-    def allocate_callback(self, base_image, expires, comment):
-        print 'allocate callback: %s %d %s' % (base_image, expires, comment)
+    def allocate_image(self, base_image, expires, comment):
         self.sync_lock.acquire()
-        ret_val = { 'result': True, 'image_id': '%s-aa00bb11cc22' % base_image, 'ip_addr': '192.168.0.1', 'base_image': base_image, 'expires': expires }
+        if not self.configured_base_images.has_key(base_image):
+            self.sync_lock.release()
+            return { 'result': False, 'error': 'No such base image configured' }
+        mac = self.allocate_mac()
+        if mac is None:
+            self.sync_lock.release()
+            return { 'result': False, 'error': 'Could not allocate a free MAC address' }
+        image_id = self.get_image_id(mac)
+        ip_addr = self.find_ip_for_mac(mac)
+        allocated_info = {}
+        allocated_info['image_id'] = image_id
+        allocated_info['mac'] = mac
+        allocated_info['ip_addr'] = ip_addr
+        allocated_info['base_image'] = base_image
+        allocated_info['creation_time'] = int(time.time())
+        allocated_info['expires'] = expires
+        allocated_info['comment'] = ''
         if comment is not None:
-            ret_val['comment'] = comment
+            allocated_info['comment'] = comment
+        self.allocated_images[image_id] = allocated_info
+        ret_val = { 'result': True, 'image_id': image_id, 'ip_addr': ip_addr, 'base_image': base_image, 'expires': expires }
         self.sync_lock.release()
         return ret_val
 
-    def deallocate_callback(self, image_id):
-        print 'deallocate callback: %s' % (image_id)
+    def deallocate_image(self, image_id):
         self.sync_lock.acquire()
-        ret_val = { 'result': True, 'image_id': image_id, 'status': 'free' }
+        ret_val = { 'result': False, 'error': 'No such image' }
+        if self.allocated_images.has_key(image_id):
+            self.deallocate_mac(self.allocated_images[image_id]['mac'])
+            ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
+            del self.allocated_images[image_id]
         self.sync_lock.release()
         return ret_val
 
-    def image_status_callback(self, image_id):
-        print 'image status callback: %s' % (image_id)
+    def image_status(self, image_id):
         self.sync_lock.acquire()
-        ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': '192.168.0.1', 'base_image': 'xp', 'expires': 1122 }
+        if self.allocated_images.has_key(image_id):
+            time_before_expiry = self.allocated_images[image_id]['creation_time'] + self.allocated_images[image_id]['expires'] - int(time.time())
+            if time_before_expiry >= 0:
+                ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': self.allocated_images['ip_addr'], 'base_image': self.allocated_images['ip_addr'], 'expires': time_bfore_expiry, 'comment': self.allocated_images['comment'] }
+        ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
         self.sync_lock.release()
         return ret_val
-        
-    def status_callback(self):
+
+    def status(self):
         print 'status callback'
         self.sync_lock.acquire()
         ret_val = { 'result': True, 'allocated_images': 13 }
@@ -138,7 +161,6 @@ class VMAllocationService():
 
     def expire_thread_loop(self):
         while self.running == True:
-            print "expire_thread_loop"
             self.sync_lock.acquire()
             # do work here
             self.sync_lock.release()
@@ -152,13 +174,13 @@ class VMAllocationService():
     def allocate_mac(self):
         ret_val = None
         self.sync_lock.acquire()
-        mac_keys = keys(self.mac_ip_records)
+        mac_keys = self.mac_ip_records.keys()
         for key in mac_keys:
-            if self.mac_ip_records['allocated'] == False:
-                self.mac_ip_records['allocated'] = True
+            if self.mac_ip_records[key]['allocated'] == False:
+                self.mac_ip_records[key]['allocated'] = True
                 ret_val = key
                 break
-        self.sync_lock.relese()
+        self.sync_lock.release()
         return ret_val
 
     def deallocate_mac(self, mac):
