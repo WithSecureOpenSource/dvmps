@@ -1,6 +1,8 @@
 import BaseHTTPServer
 import urlparse
 import json
+import threading
+import time
 
 class VMAllocationServiceRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def do_GET(self):
@@ -96,6 +98,9 @@ class VMAllocationService():
         self.host = host
         self.port = port
         self.httpd = None
+        self.expire_thread = None
+        self.httpd_thread = None
+        self.running = False
 
     def allocate_callback(self, base_image, expires, comment):
         print 'allocate callback: %s %d %s' % (base_image, expires, comment)
@@ -119,7 +124,29 @@ class VMAllocationService():
         ret_val = { 'result': True, 'allocated_images': 13 }
         return ret_val
 
+    def expire_thread_loop(self):
+        while self.running == True:
+            print "expire_thread_loop"
+            time.sleep(5)
+
     def run(self):
+        self.stop()
+        self.running = True
+        self.expire_thread = threading.Thread(target=self.expire_thread_loop)
+        self.expire_thread.start()
         self.httpd = VMAllocationServiceHTTPServer((self.host, self.port), VMAllocationServiceRequestHandler)
         self.httpd.vm_allocation_service = self
-        self.httpd.serve_forever()
+        self.thread = threading.Thread(target=self.httpd.serve_forever)
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+        if self.httpd is not None:
+            self.httpd.shutdown()
+            self.httpd = None
+        if self.httpd_thread is not None:
+            self.httpd_thread.join()
+            self.httpd_thread = None
+        if self.expire_thread is not None:
+            self.expire_thread.join()
+            self.expire_thread = None
