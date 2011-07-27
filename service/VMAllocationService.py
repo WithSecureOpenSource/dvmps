@@ -3,22 +3,43 @@ import urlparse
 import json
 import threading
 import time
+import subprocess
+import shutil
+import os
 
 class VMAllocationServiceRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-    def do_GET(self):
+    def do_POST(self):
         parsed = urlparse.urlparse(self.path)
-        parameter_tuples = urlparse.parse_qsl(parsed.query)
+        clen = self.headers.getheader('content-length')
+        if clen:
+            clen = int(clen)
+        else:
+            self.send_response(400)
+            self.send_header('Content-Type', 'text/html')
+            self.end_headers()
+            self.wfile.write('<html><body>Bad request</body></html>')
+            return
+        request_params = None
+        data = self.rfile.read(clen)
+        try:
+            request_params = json.loads(data)
+        except:
+            self.send_response(400)
+            self.send_header('Content-Type', 'text/html')
+            self.end_headers()
+            self.wfile.write('<html><body>Bad request</body></html>')
+            return
+
         if parsed.path == '/allocate':
             base_image = None
             expires = None
             comment = None
-            for key,value in parameter_tuples:
-                if key == 'base_image':
-                    base_image = value
-                elif key == 'expires':
-                    expires = int(value)
-                elif key == 'comment':
-                    comment = value
+            if request_params.has_key('base_image'):
+                base_image = request_params['base_image']
+            if request_params.has_key('expires'):
+                expires = request_params['expires']
+            if request_params.has_key('comment'):
+                comment = request_params['comment']
             if base_image is not None and expires is not None:
                 json_reply = self.server.vm_allocation_service.allocate_image(base_image, expires, comment)
                 if json_reply is not None:
@@ -34,9 +55,8 @@ class VMAllocationServiceRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             return
         elif parsed.path == '/deallocate':
             image_id = None
-            for key,value in parameter_tuples:
-                if key == 'image_id':
-                    image_id = value
+            if request_params.has_key('image_id'):
+                image_id = request_params['image_id']
             if image_id is not None:
                 json_reply = self.server.vm_allocation_service.deallocate_image(image_id)
                 if json_reply is not None:
@@ -50,11 +70,10 @@ class VMAllocationServiceRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write('<html><body>Bad request</body></html>')
             return
-        elif parsed.path == '/imagestatus':
+        elif parsed.path == '/status':
             image_id = None
-            for key,value in parameter_tuples:
-                if key == 'image_id':
-                    image_id = value
+            if request_params.has_key('image_id'):
+                image_id = request_params['image_id']
             if image_id is not None:
                 json_reply = self.server.vm_allocation_service.image_status(image_id)
                 if json_reply is not None:
@@ -68,7 +87,7 @@ class VMAllocationServiceRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write('<html><body>Bad request</body></html>')
             return
-        elif parsed.path == '/status':
+        elif parsed.path == '/systemstatus':
             json_reply = self.server.vm_allocation_service.status()
             if json_reply is not None:
                 self.send_response(200)
@@ -127,8 +146,22 @@ class VMAllocationService():
         allocated_info['comment'] = ''
         if comment is not None:
             allocated_info['comment'] = comment
+        full_path_image_file = '/var/lib/libvirt/images/%s.img' % image_id
+        full_path_xml_def_file = '/var/lib/libvirt/qemu/%s.xml' % image_id
+#        shutil.copyfile(self.configured_base_images[base_image]['image_filename'], full_path_image_file)
+        subprocess.call(['qemu-img', 'create', '-b', self.configured_base_images[base_image]['image_filename'], '-f', 'qcow2', full_path_image_file])
+        f = open(self.configured_base_images[base_image]['template_filename'], 'r')
+        xmlspec = f.read()
+        f.close()
+        xmlspec = xmlspec.replace('$(VM_ID)', image_id)
+        xmlspec = xmlspec.replace('$(IMAGE_FILE)', full_path_image_file)
+        xmlspec = xmlspec.replace('$(MAC_ADDRESS)', mac)
+        f = open(full_path_xml_def_file, 'w')
+        f.write(xmlspec)
+        f.close()
+        subprocess.call(['virsh', 'create', full_path_xml_def_file])
         self.allocated_images[image_id] = allocated_info
-        ret_val = { 'result': True, 'image_id': image_id, 'ip_addr': ip_addr, 'base_image': base_image, 'expires': expires }
+        ret_val = { 'result': True, 'image_id': image_id, 'ip_addr': ip_addr, 'base_image': base_image, 'expires': expires }        
         self.sync_lock.release()
         return ret_val
 
@@ -136,6 +169,11 @@ class VMAllocationService():
         self.sync_lock.acquire()
         ret_val = { 'result': False, 'error': 'No such image' }
         if self.allocated_images.has_key(image_id):
+            subprocess.call(['virsh', 'destroy', image_id])
+            full_path_image_file = '/var/lib/libvirt/images/%s.img' % image_id
+            full_path_xml_def_file = '/var/lib/libvirt/qemu/%s.xml' % image_id
+            os.remove(full_path_image_file)
+            os.remove(full_path_xml_def_file)
             self.deallocate_mac(self.allocated_images[image_id]['mac'])
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
             del self.allocated_images[image_id]
@@ -143,12 +181,13 @@ class VMAllocationService():
         return ret_val
 
     def image_status(self, image_id):
+        ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
         self.sync_lock.acquire()
         if self.allocated_images.has_key(image_id):
-            time_before_expiry = self.allocated_images[image_id]['creation_time'] + self.allocated_images[image_id]['expires'] - int(time.time())
+            image_record = self.allocated_images[image_id]
+            time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
             if time_before_expiry >= 0:
-                ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': self.allocated_images['ip_addr'], 'base_image': self.allocated_images['ip_addr'], 'expires': time_bfore_expiry, 'comment': self.allocated_images['comment'] }
-        ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
+                ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
         self.sync_lock.release()
         return ret_val
 
@@ -168,7 +207,7 @@ class VMAllocationService():
 
     def define_mac_ip_pair(self, mac, ip):
         self.sync_lock.acquire()
-        self.mac_ip_records[mac] = { 'ip_addr': ip, 'allocated': False }
+        self.mac_ip_records[mac] = { 'ip_addr': ip, 'mac': mac, 'allocated': False }
         self.sync_lock.release()
 
     def allocate_mac(self):
@@ -193,16 +232,16 @@ class VMAllocationService():
         ret_val = None
         self.sync_lock.acquire()
         if self.mac_ip_records.has_key(mac):
-            retval = self.mac_ip_records[mac]['ip_addr']
+            ret_val = self.mac_ip_records[mac]['ip_addr']
         self.sync_lock.release()
         return ret_val
 
     def get_image_id(self, mac):
         return 'dynamic_image_%s' % mac.replace(':', '')
 
-    def define_base_image(self, base_id, memory, image_filename):
+    def define_base_image(self, base_id, template_filename, image_filename):
         self.sync_lock.acquire()
-        self.configured_base_images[base_id] = { 'base_id': base_id, 'memory': memory, 'image_filename': image_filename }
+        self.configured_base_images[base_id] = { 'base_id': base_id, 'template_filename': template_filename, 'image_filename': image_filename }
         self.sync_lock.release()
 
     def run(self):
@@ -226,3 +265,14 @@ class VMAllocationService():
         if self.expire_thread is not None:
             self.expire_thread.join()
             self.expire_thread = None
+
+if __name__ == '__main__':
+    vma = VMAllocationService(port=80)
+    vma.define_mac_ip_pair('00:aa:ee:00:ee:c8', '10.70.180.200')
+    vma.define_mac_ip_pair('00:aa:ee:00:ee:c9', '10.70.180.201')
+    vma.define_mac_ip_pair('00:aa:ee:00:ee:ca', '10.70.180.202')
+    vma.define_mac_ip_pair('00:aa:ee:00:ee:cb', '10.70.180.203')
+    vma.define_mac_ip_pair('00:aa:ee:00:ee:cc', '10.70.180.204')
+    vma.define_base_image('noushe-linux', '/var/lib/libvirt/qemu/templates/template-noushe-linux-test2.xml', '/var/lib/libvirt/images/base/noushe-linux-test2.qcow2')
+    vma.define_base_image('noushe-winxp', '/var/lib/libvirt/qemu/templates/template-noushe-winxp.xml', '/var/lib/libvirt/images/base/noushe-winxp.qcow2')
+    vma.run()
