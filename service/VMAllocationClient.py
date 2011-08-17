@@ -28,11 +28,18 @@ def status(image_id):
     rep = json.loads(rep_str)
     return rep
 
+def systemstatus():
+    o = urllib2.urlopen(SERVER_BASE_URL + '/systemstatus', json.dumps(None))
+    rep_str = o.read()
+    rep = json.loads(rep_str)
+    return rep
+
 def usage():
     print "Usage: %s <command> <arguments..>" % sys.argv[0]
     print " %s allocate <base_image> [<expiry>] [<comment>]" % sys.argv[0]
     print " %s deallocate <image_id>" % sys.argv[0]
     print " %s status <image_id>" % sys.argv[0]
+    print " %s systemstatus" % sys.argv[0]
     
 if __name__ == '__main__':
     ret = None
@@ -74,6 +81,9 @@ if __name__ == '__main__':
             sys.exit(-1)
         image_id = sys.argv[2]
         ret = status(image_id)
+        print json.dumps(ret, indent=4)
+    elif command == 'systemstatus':
+        ret = systemstatus()
         print json.dumps(ret, indent=4)
     else:
         print "Unknown command"
