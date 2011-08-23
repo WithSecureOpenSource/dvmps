@@ -1,0 +1,27 @@
+drop table allocated;
+drop table mac_ip_pairs;
+drop table base_images;
+
+create table mac_ip_pairs (
+        id serial primary key,
+        mac text unique not null,
+        ip text unique not null,
+        allocated boolean
+        );
+
+create table base_images (
+        id serial primary key,
+        name text not null,
+        configuration_template text not null,
+        base_image_file text not null
+        );
+
+create table allocated (
+        id serial primary key,
+        image_id text unique not null,
+        mac_id integer references mac_ip_pairs (id) not null,
+        base_image_id integer references base_images (id) not null,
+        creation_time integer not null,
+        valid_for integer not null,
+        comment text
+        );
