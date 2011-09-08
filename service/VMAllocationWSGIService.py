@@ -53,16 +53,20 @@ def vm_allocator_app(environ, start_response):
 
 if __name__ == '__main__':
     vma = VMAllocationService.VMAllocationService()
-    vma.define_mac_ip_pair('00:aa:ee:00:ee:c8', '10.70.180.200')
-    vma.define_mac_ip_pair('00:aa:ee:00:ee:c9', '10.70.180.201')
-    vma.define_mac_ip_pair('00:aa:ee:00:ee:ca', '10.70.180.202')
-    vma.define_mac_ip_pair('00:aa:ee:00:ee:cb', '10.70.180.203')
-    vma.define_mac_ip_pair('00:aa:ee:00:ee:cc', '10.70.180.204')
-    vma.define_base_image('noushe-linux', '/var/lib/libvirt/qemu/templates/template-noushe-linux-test2.xml', '/var/lib/libvirt/images/base/noushe-linux-test2.qcow2')
-    vma.define_base_image('noushe-winxp', '/var/lib/libvirt/qemu/templates/template-noushe-winxp.xml', '/var/lib/libvirt/images/base/noushe-winxp.qcow2')
+#    vma.define_mac_ip_pair('00:aa:ee:00:ee:c8', '10.70.180.200')
+#    vma.define_mac_ip_pair('00:aa:ee:00:ee:c9', '10.70.180.201')
+#    vma.define_mac_ip_pair('00:aa:ee:00:ee:ca', '10.70.180.202')
+#    vma.define_mac_ip_pair('00:aa:ee:00:ee:cb', '10.70.180.203')
+#    vma.define_mac_ip_pair('00:aa:ee:00:ee:cc', '10.70.180.204')
+    vma.define_mac_ip_pair('00:aa:ee:85:0d:ab', '10.133.13.171')
+    vma.define_mac_ip_pair('00:aa:ee:85:0d:ac', '10.133.13.172')
+    vma.define_mac_ip_pair('00:aa:ee:85:0d:ad', '10.133.13.173')
 
-    httpd = make_server('', 8000, vm_allocator_app)
-    print "Serving on port 8000..."
+    vma.define_base_image('noushe-linux', '/var/lib/libvirt/qemu/templates/template-noushe-linux-test2.xml', '/var/lib/libvirt/images/base/noushe-linux-test2.qcow2')
+#    vma.define_base_image('noushe-winxp', '/var/lib/libvirt/qemu/templates/template-noushe-winxp.xml', '/var/lib/libvirt/images/base/noushe-winxp.qcow2')
+
+    httpd = make_server('', 80, vm_allocator_app)
+    print "Serving on port 80..."
 
     # Serve until process is killed
     httpd.serve_forever()
