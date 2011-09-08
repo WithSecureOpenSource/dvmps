@@ -41,8 +41,21 @@ class VMAllocationService():
             os.remove(self.allocated_images[image_id]['image_file_path'])
             os.remove(self.allocated_images[image_id]['xml_def_path'])
 
+    # must be called with sync lock held!
+    def __cleanup_expired_images(self):
+        image_ids = self.allocated_images.keys()
+        for image_id in image_ids:
+            image_record = self.allocated_images[image_id]
+            time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
+            if time_before_expiry < 0:
+                self.__destroy_image(image_id)
+                self.deallocate_mac(image_record['mac'])
+                del self.allocated_images[image_id]
+
     def allocate_image(self, base_image, expires, comment):
         self.sync_lock.acquire()
+
+        self.__cleanup_expired_images()
 
         if not self.configured_base_images.has_key(base_image):
             self.sync_lock.release()
@@ -84,6 +97,8 @@ class VMAllocationService():
         self.sync_lock.acquire()
         ret_val = { 'result': False, 'error': 'No such image' }
 
+        self.__cleanup_expired_images()
+
         if self.allocated_images.has_key(image_id):
             self.__destroy_image(image_id)
             self.deallocate_mac(self.allocated_images[image_id]['mac'])
@@ -97,13 +112,14 @@ class VMAllocationService():
         self.sync_lock.acquire()
         ret_val = { 'result': False, 'error': 'No such image' }
 
+        self.__cleanup_expired_images()
+
         if self.allocated_images.has_key(image_id):
             image_record = self.allocated_images[image_id]
             time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
-            if time_before_expiry >= 0:
-                self.__destroy_image(image_id)
-                self.__create_and_launch_image(image_id)
-                ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
+            self.__destroy_image(image_id)
+            self.__create_and_launch_image(image_id)
+            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
 
         self.sync_lock.release()
         return ret_val
@@ -112,17 +128,21 @@ class VMAllocationService():
         ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
         self.sync_lock.acquire()
 
+        self.__cleanup_expired_images()
+
         if self.allocated_images.has_key(image_id):
             image_record = self.allocated_images[image_id]
             time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
-            if time_before_expiry >= 0:
-                ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
+            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
 
         self.sync_lock.release()
         return ret_val
 
     def status(self):
         self.sync_lock.acquire()
+
+        self.__cleanup_expired_images()
+
         ret_val = { 'result': True, 'allocated_images': len(self.allocated_images) }
         self.sync_lock.release()
         return ret_val
