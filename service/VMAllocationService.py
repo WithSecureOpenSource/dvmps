@@ -12,6 +12,35 @@ class VMAllocationService():
         self.configured_base_images = {}
         self.sync_lock = threading.RLock()
 
+    # must be called with sync lock held!
+    def __create_and_launch_image(self, image_id):
+        if self.allocated_images.has_key(image_id):
+            base_image = self.allocated_images[image_id]['base_image']
+            full_path_image_file = self.allocated_images[image_id]['image_file_path']
+            full_path_xml_def_file = self.allocated_images[image_id]['xml_def_path']
+            mac = self.allocated_images[image_id]['mac']
+
+            subprocess.call(['qemu-img', 'create', '-b', self.configured_base_images[base_image]['image_filename'], '-f', 'qcow2', full_path_image_file])
+
+            f = open(self.configured_base_images[base_image]['template_filename'], 'r')
+            xmlspec = f.read()
+            f.close()
+            xmlspec = xmlspec.replace('$(VM_ID)', image_id)
+            xmlspec = xmlspec.replace('$(IMAGE_FILE)', full_path_image_file)
+            xmlspec = xmlspec.replace('$(MAC_ADDRESS)', mac)
+            f = open(full_path_xml_def_file, 'w')
+            f.write(xmlspec)
+            f.close()
+
+            subprocess.call(['virsh', 'create', full_path_xml_def_file])
+
+    # must be called with sync lock held!
+    def __destroy_image(self, image_id):
+        if self.allocated_images.has_key(image_id):
+            subprocess.call(['virsh', 'destroy', image_id])
+            os.remove(self.allocated_images[image_id]['image_file_path'])
+            os.remove(self.allocated_images[image_id]['xml_def_path'])
+
     def allocate_image(self, base_image, expires, comment):
         self.sync_lock.acquire()
 
@@ -27,6 +56,9 @@ class VMAllocationService():
         image_id = str(uuid.uuid4())
         ip_addr = self.find_ip_for_mac(mac)
 
+        full_path_image_file = '/var/lib/libvirt/images/active_dynamic/%s.img' % image_id
+        full_path_xml_def_file = '/var/lib/libvirt/qemu/active_dynamic/%s.xml' % image_id
+
         allocated_info = {}
         allocated_info['image_id'] = image_id
         allocated_info['mac'] = mac
@@ -35,28 +67,15 @@ class VMAllocationService():
         allocated_info['creation_time'] = int(time.time())
         allocated_info['expires'] = expires
         allocated_info['comment'] = ''
-
         if comment is not None:
             allocated_info['comment'] = comment
-
-        full_path_image_file = '/var/lib/libvirt/images/%s.img' % image_id
-        full_path_xml_def_file = '/var/lib/libvirt/qemu/%s.xml' % image_id
-
-        subprocess.call(['qemu-img', 'create', '-b', self.configured_base_images[base_image]['image_filename'], '-f', 'qcow2', full_path_image_file])
-
-        f = open(self.configured_base_images[base_image]['template_filename'], 'r')
-        xmlspec = f.read()
-        f.close()
-        xmlspec = xmlspec.replace('$(VM_ID)', image_id)
-        xmlspec = xmlspec.replace('$(IMAGE_FILE)', full_path_image_file)
-        xmlspec = xmlspec.replace('$(MAC_ADDRESS)', mac)
-        f = open(full_path_xml_def_file, 'w')
-        f.write(xmlspec)
-        f.close()
-
-        subprocess.call(['virsh', 'create', full_path_xml_def_file])
+        allocated_info['image_file_path'] = full_path_image_file
+        allocated_info['xml_def_path'] = full_path_xml_def_file
 
         self.allocated_images[image_id] = allocated_info
+
+        self.__create_and_launch_image(image_id)
+
         ret_val = { 'result': True, 'image_id': image_id, 'ip_addr': ip_addr, 'base_image': base_image, 'expires': expires }        
         self.sync_lock.release()
         return ret_val
@@ -66,11 +85,7 @@ class VMAllocationService():
         ret_val = { 'result': False, 'error': 'No such image' }
 
         if self.allocated_images.has_key(image_id):
-            subprocess.call(['virsh', 'destroy', image_id])
-            full_path_image_file = '/var/lib/libvirt/images/%s.img' % image_id
-            full_path_xml_def_file = '/var/lib/libvirt/qemu/%s.xml' % image_id
-            os.remove(full_path_image_file)
-            os.remove(full_path_xml_def_file)
+            self.__destroy_image(image_id)
             self.deallocate_mac(self.allocated_images[image_id]['mac'])
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
             del self.allocated_images[image_id]
