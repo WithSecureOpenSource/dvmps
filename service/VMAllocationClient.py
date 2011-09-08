@@ -2,7 +2,8 @@ import sys
 import json
 import urllib2
 
-SERVER_BASE_URL='http://gtnklcloud1.klrdc.gtn'
+#SERVER_BASE_URL='http://gtnklcloud1.klrdc.gtn'
+SERVER_BASE_URL='http://10.133.13.170'
 
 def allocate(base_image, expires, comment):
     data = { 'base_image': base_image, 'expires': expires, 'comment': comment }
