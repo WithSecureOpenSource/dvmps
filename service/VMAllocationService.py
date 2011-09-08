@@ -93,6 +93,21 @@ class VMAllocationService():
         self.sync_lock.release()
         return ret_val
 
+    def revert_image(self, image_id):
+        self.sync_lock.acquire()
+        ret_val = { 'result': False, 'error': 'No such image' }
+
+        if self.allocated_images.has_key(image_id):
+            image_record = self.allocated_images[image_id]
+            time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
+            if time_before_expiry >= 0:
+                self.__destroy_image(image_id)
+                self.__create_and_launch_image(image_id)
+                ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
+
+        self.sync_lock.release()
+        return ret_val
+
     def image_status(self, image_id):
         ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
         self.sync_lock.acquire()

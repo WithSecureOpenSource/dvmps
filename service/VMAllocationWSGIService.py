@@ -38,6 +38,12 @@ def vm_allocator_app(environ, start_response):
                 image_id = request_params['image_id']
             if image_id is not None:
                 res = vma.deallocate_image(image_id)
+        elif command == '/revert':
+            image_id = None
+            if request_params.has_key('image_id'):
+                image_id = request_params['image_id']
+            if image_id is not None:
+                res = vma.revert_image(image_id)
         elif command == '/status':
             image_id = None
             if request_params.has_key('image_id'):
@@ -46,9 +52,7 @@ def vm_allocator_app(environ, start_response):
                 res = vma.image_status(image_id)
         elif command == '/systemstatus':
             res = vma.status()
-    else:
-        if vma is not None:
-            res = vma.find_ip_for_mac('00:aa:ee:00:ee:cb')
+
     return [json.dumps(res)]
 
 if __name__ == '__main__':

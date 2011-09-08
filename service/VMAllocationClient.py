@@ -21,6 +21,14 @@ def deallocate(image_id):
     rep = json.loads(rep_str)
     return rep
 
+def revert(image_id):
+    data = { 'image_id': image_id }
+    data_str = json.dumps(data)
+    o = urllib2.urlopen(SERVER_BASE_URL + '/revert', data_str)
+    rep_str = o.read()
+    rep = json.loads(rep_str)
+    return rep
+
 def status(image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
@@ -39,6 +47,7 @@ def usage():
     print "Usage: %s <command> <arguments..>" % sys.argv[0]
     print " %s allocate <base_image> [<expiry>] [<comment>]" % sys.argv[0]
     print " %s deallocate <image_id>" % sys.argv[0]
+    print " %s revert <image_id>" % sys.argv[0]
     print " %s status <image_id>" % sys.argv[0]
     print " %s systemstatus" % sys.argv[0]
     
@@ -73,6 +82,15 @@ if __name__ == '__main__':
             sys.exit(-1)
         image_id = sys.argv[2]
         ret = deallocate(image_id)
+        print json.dumps(ret, indent=4)
+    elif command == 'revert':
+        image_id = None
+        if arglen < 3:
+            print "Missing image id!"
+            usage()
+            sys.exit(-1)
+        image_id = sys.argv[2]
+        ret = revert(image_id)
         print json.dumps(ret, indent=4)
     elif command == 'status':
         image_id = None
