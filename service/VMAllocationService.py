@@ -57,7 +57,6 @@ class VMAllocationService():
 
     def allocate_image(self, base_image, expires, comment):
         self.sync_lock.acquire()
-
         self.__cleanup_expired_images()
 
         if not self.configured_base_images.has_key(base_image):
@@ -98,9 +97,8 @@ class VMAllocationService():
 
     def deallocate_image(self, image_id):
         self.sync_lock.acquire()
-        ret_val = { 'result': False, 'error': 'No such image' }
-
         self.__cleanup_expired_images()
+        ret_val = { 'result': False, 'error': 'No such image' }
 
         if self.allocated_images.has_key(image_id):
             self.__destroy_image(image_id)
@@ -113,9 +111,8 @@ class VMAllocationService():
 
     def revert_image(self, image_id):
         self.sync_lock.acquire()
-        ret_val = { 'result': False, 'error': 'No such image' }
-
         self.__cleanup_expired_images()
+        ret_val = { 'result': False, 'error': 'No such image' }
 
         if self.allocated_images.has_key(image_id):
             image_record = self.allocated_images[image_id]
@@ -128,10 +125,9 @@ class VMAllocationService():
         return ret_val
 
     def image_status(self, image_id):
-        ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
         self.sync_lock.acquire()
-
         self.__cleanup_expired_images()
+        ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
 
         if self.allocated_images.has_key(image_id):
             image_record = self.allocated_images[image_id]
@@ -143,9 +139,7 @@ class VMAllocationService():
 
     def status(self):
         self.sync_lock.acquire()
-
         self.__cleanup_expired_images()
-
         ret_val = { 'result': True, 'allocated_images': len(self.allocated_images) }
         self.sync_lock.release()
         return ret_val
@@ -156,8 +150,8 @@ class VMAllocationService():
         self.sync_lock.release()
 
     def allocate_mac(self):
-        ret_val = None
         self.sync_lock.acquire()
+        ret_val = None
         mac_keys = self.mac_ip_records.keys()
         for key in mac_keys:
             if self.mac_ip_records[key]['allocated'] == False:
@@ -174,8 +168,8 @@ class VMAllocationService():
         self.sync_lock.release()
 
     def find_ip_for_mac(self, mac):
-        ret_val = None
         self.sync_lock.acquire()
+        ret_val = None
         if self.mac_ip_records.has_key(mac):
             ret_val = self.mac_ip_records[mac]['ip_addr']
         self.sync_lock.release()
