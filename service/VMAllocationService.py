@@ -12,8 +12,8 @@ class VMAllocationService():
         self.configured_base_images = {}
         self.sync_lock = threading.RLock()
 
-    # must be called with sync lock held!
     def __create_and_launch_image(self, image_id):
+        self.sync_lock.acquire()
         if self.allocated_images.has_key(image_id):
             base_image = self.allocated_images[image_id]['base_image']
             full_path_image_file = self.allocated_images[image_id]['image_file_path']
@@ -33,16 +33,18 @@ class VMAllocationService():
             f.close()
 
             subprocess.call(['virsh', 'create', full_path_xml_def_file])
+        self.sync_lock.release()
 
-    # must be called with sync lock held!
     def __destroy_image(self, image_id):
+        self.sync_lock.acquire()
         if self.allocated_images.has_key(image_id):
             subprocess.call(['virsh', 'destroy', image_id])
             os.remove(self.allocated_images[image_id]['image_file_path'])
             os.remove(self.allocated_images[image_id]['xml_def_path'])
+        self.sync_lock.release()
 
-    # must be called with sync lock held!
     def __cleanup_expired_images(self):
+        self.sync_lock.acquire()
         image_ids = self.allocated_images.keys()
         for image_id in image_ids:
             image_record = self.allocated_images[image_id]
@@ -51,6 +53,7 @@ class VMAllocationService():
                 self.__destroy_image(image_id)
                 self.deallocate_mac(image_record['mac'])
                 del self.allocated_images[image_id]
+        self.sync_lock.release()
 
     def allocate_image(self, base_image, expires, comment):
         self.sync_lock.acquire()
