@@ -88,7 +88,7 @@ class VMAllocationService():
             if time_before_expiry >= 0:
                 ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
 
-                self.sync_lock.release()
+        self.sync_lock.release()
         return ret_val
 
     def status(self):
