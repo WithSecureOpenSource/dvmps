@@ -4,6 +4,7 @@ import subprocess
 import shutil
 import os
 import uuid
+import random
 
 class VMAllocationService():
     def __init__(self):
@@ -153,6 +154,7 @@ class VMAllocationService():
         self.sync_lock.acquire()
         ret_val = None
         mac_keys = self.mac_ip_records.keys()
+        random.shuffle(mac_keys)
         for key in mac_keys:
             if self.mac_ip_records[key]['allocated'] == False:
                 self.mac_ip_records[key]['allocated'] = True
