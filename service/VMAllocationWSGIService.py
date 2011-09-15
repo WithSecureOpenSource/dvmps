@@ -89,7 +89,8 @@ if __name__ == '__main__':
     vma.define_base_image('noushe-linux', '/var/lib/libvirt/qemu/templates/template-noushe-linux-test2.xml', '/var/lib/libvirt/images/base/noushe-linux-test2.qcow2')
     vma.define_base_image('noushe-win7-x64', '/var/lib/libvirt/qemu/templates/template-noushe-win7-x64.xml', '/var/lib/libvirt/images/base/noushe-win7-x64.qcow2')
     vma.define_base_image('noushe-win7-x86', '/var/lib/libvirt/qemu/templates/template-noushe-win7-x86.xml', '/var/lib/libvirt/images/base/noushe-win7-x86.qcow2')
-#    vma.define_base_image('noushe-winxp', '/var/lib/libvirt/qemu/templates/template-noushe-winxp.xml', '/var/lib/libvirt/images/base/noushe-winxp.qcow2')
+    vma.define_base_image('noushe-winxp', '/var/lib/libvirt/qemu/templates/template-noushe-winxp.xml', '/var/lib/libvirt/images/base/noushe-winxp.qcow2')
+    vma.define_base_image('noushe-winxp-ger', '/var/lib/libvirt/qemu/templates/template-noushe-winxp-ger.xml', '/var/lib/libvirt/images/base/noushe-winxp-ger.qcow2')
 
     httpd = make_server('', 80, vm_allocator_app)
     print "Serving on port 80..."
