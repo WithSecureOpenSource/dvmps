@@ -29,6 +29,22 @@ def revert(image_id):
     rep = json.loads(rep_str)
     return rep
 
+def poweroff(image_id):
+    data = { 'image_id': image_id }
+    data_str = json.dumps(data)
+    o = urllib2.urlopen(SERVER_BASE_URL + '/poweroff', data_str)
+    rep_str = o.read()
+    rep = json.loads(rep_str)
+    return rep
+
+def poweron(image_id):
+    data = { 'image_id': image_id }
+    data_str = json.dumps(data)
+    o = urllib2.urlopen(SERVER_BASE_URL + '/poweron', data_str)
+    rep_str = o.read()
+    rep = json.loads(rep_str)
+    return rep
+
 def status(image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
@@ -48,6 +64,8 @@ def usage():
     print " %s allocate <base_image> [<expiry>] [<comment>]" % sys.argv[0]
     print " %s deallocate <image_id>" % sys.argv[0]
     print " %s revert <image_id>" % sys.argv[0]
+    print " %s poweroff <image_id>" % sys.argv[0]
+    print " %s poweron <image_id>" % sys.argv[0]
     print " %s status <image_id>" % sys.argv[0]
     print " %s systemstatus" % sys.argv[0]
     
@@ -91,6 +109,24 @@ if __name__ == '__main__':
             sys.exit(-1)
         image_id = sys.argv[2]
         ret = revert(image_id)
+        print json.dumps(ret, indent=4)
+    elif command == 'poweroff':
+        image_id = None
+        if arglen < 3:
+            print "Missing image id!"
+            usage()
+            sys.exit(-1)
+        image_id = sys.argv[2]
+        ret = poweroff(image_id)
+        print json.dumps(ret, indent=4)
+    elif command == 'poweron':
+        image_id = None
+        if arglen < 3:
+            print "Missing image id!"
+            usage()
+            sys.exit(-1)
+        image_id = sys.argv[2]
+        ret = poweron(image_id)
         print json.dumps(ret, indent=4)
     elif command == 'status':
         image_id = None
