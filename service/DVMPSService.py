@@ -5,7 +5,7 @@ import shutil
 import os
 import uuid
 import random
-import VMAllocationServiceDAO
+import DVMPSDAO
 
 class VMAllocationService():
     def __init__(self, database=None):

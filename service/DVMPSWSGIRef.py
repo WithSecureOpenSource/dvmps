@@ -1,5 +1,5 @@
 from wsgiref.simple_server import make_server
-import VMAllocationService
+import DVMPSService
 import json
 
 vma = None
