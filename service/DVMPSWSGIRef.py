@@ -68,7 +68,7 @@ def vm_allocator_app(environ, start_response):
     return [json.dumps(res)]
 
 if __name__ == '__main__':
-    vma = VMAllocationService.VMAllocationService(database='dvmps')
+    vma = DVMPSService.DVMPSService(database='dvmps')
 
     httpd = make_server('', 80, vm_allocator_app)
     print "Serving on port 80..."

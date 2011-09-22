@@ -7,7 +7,7 @@ import uuid
 import random
 import DVMPSDAO
 
-class VMAllocationService():
+class DVMPSService():
     def __init__(self, database=None):
         self.database = database
         self.sync_lock = threading.RLock()
@@ -25,10 +25,10 @@ class VMAllocationService():
         return '/var/lib/libvirt/qemu/templates/%s' % filename
 
     def __create_image(self, image_id):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
-        bim = VMAllocationServiceDAO.BaseImages(dbc)
-        mip = VMAllocationServiceDAO.MacIpPairs(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
+        bim = DVMPSDAO.BaseImages(dbc)
+        mip = DVMPSDAO.MacIpPairs(dbc)
 
         self.sync_lock.acquire()
         allocated_image_conf = ali.get_configuration(image_id)
@@ -61,8 +61,8 @@ class VMAllocationService():
         self.sync_lock.release()
 
     def __poweron_image(self, image_id):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
 
         self.sync_lock.acquire()
         allocated_image_conf = ali.get_configuration(image_id)
@@ -72,8 +72,8 @@ class VMAllocationService():
         self.sync_lock.release()
 
     def __poweroff_image(self, image_id):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
 
         self.sync_lock.acquire()
         allocated_image_conf = ali.get_configuration(image_id)
@@ -82,8 +82,8 @@ class VMAllocationService():
         self.sync_lock.release()
 
     def __destroy_image(self, image_id):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
 
         self.sync_lock.acquire()
         allocated_image_conf = ali.get_configuration(image_id)
@@ -93,10 +93,10 @@ class VMAllocationService():
         self.sync_lock.release()
 
     def __cleanup_expired_images(self):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
-        bim = VMAllocationServiceDAO.BaseImages(dbc)
-        mip = VMAllocationServiceDAO.MacIpPairs(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
+        bim = DVMPSDAO.BaseImages(dbc)
+        mip = DVMPSDAO.MacIpPairs(dbc)
         timenow = int(time.time())
 
         self.sync_lock.acquire()
@@ -114,10 +114,10 @@ class VMAllocationService():
         self.sync_lock.release()
 
     def allocate_image(self, base_image, valid_for, comment):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
-        bim = VMAllocationServiceDAO.BaseImages(dbc)
-        mip = VMAllocationServiceDAO.MacIpPairs(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
+        bim = DVMPSDAO.BaseImages(dbc)
+        mip = DVMPSDAO.MacIpPairs(dbc)
 
         image_id = str(uuid.uuid4())
 
@@ -149,9 +149,9 @@ class VMAllocationService():
         return ret_val
 
     def deallocate_image(self, image_id):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
-        mip = VMAllocationServiceDAO.MacIpPairs(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
+        mip = DVMPSDAO.MacIpPairs(dbc)
 
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
@@ -170,8 +170,8 @@ class VMAllocationService():
         return ret_val
 
     def revert_image(self, image_id):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
 
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
@@ -189,10 +189,10 @@ class VMAllocationService():
         return ret_val
 
     def image_status(self, image_id):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
-        bim = VMAllocationServiceDAO.BaseImages(dbc)
-        mip = VMAllocationServiceDAO.MacIpPairs(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
+        bim = DVMPSDAO.BaseImages(dbc)
+        mip = DVMPSDAO.MacIpPairs(dbc)
 
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
@@ -221,8 +221,8 @@ class VMAllocationService():
         return ret_val
 
     def poweroff_image(self, image_id):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
 
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
@@ -237,8 +237,8 @@ class VMAllocationService():
         return ret_val
 
     def poweron_image(self, image_id):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
 
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
@@ -253,8 +253,8 @@ class VMAllocationService():
         return ret_val
 
     def status(self):
-        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
-        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
 
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
