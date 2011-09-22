@@ -5,161 +5,231 @@ import shutil
 import os
 import uuid
 import random
+import VMAllocationServiceDAO
 
 class VMAllocationService():
-    def __init__(self):
-        self.allocated_images = {}
-        self.mac_ip_records = {}
-        self.configured_base_images = {}
+    def __init__(self, database=None):
+        self.database = database
         self.sync_lock = threading.RLock()
 
+    def __cloned_disk_image_path(self, image_id):
+        return '/var/lib/libvirt/images/active_dynamic/%s.img' % image_id
+
+    def __cloned_xml_definition_path(self, image_id):
+        return '/var/lib/libvirt/qemu/active_dynamic/%s.xml' % image_id
+
+    def __base_disk_image_path(self, filename):
+        return '/var/lib/libvirt/images/base/%s' % filename
+
+    def __base_xml_template_path(self, filename):
+        return '/var/lib/libvirt/qemu/templates/%s' % filename
+
     def __create_image(self, image_id):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        bim = VMAllocationServiceDAO.BaseImages(dbc)
+        mip = VMAllocationServiceDAO.MacIpPairs(dbc)
+
         self.sync_lock.acquire()
-        if self.allocated_images.has_key(image_id):
-            base_image = self.allocated_images[image_id]['base_image']
-            full_path_image_file = self.allocated_images[image_id]['image_file_path']
-            full_path_xml_def_file = self.allocated_images[image_id]['xml_def_path']
-            mac = self.allocated_images[image_id]['mac']
+        allocated_image_conf = ali.get_configuration(image_id)
+        if allocated_image_conf is not None and allocated_image_conf.has_key('base_image_id') and allocated_image_conf.has_key('mac_id'):
+            full_path_base_image_file = None
+            full_path_xml_template_file = None
+            mac = None
 
-            subprocess.call(['qemu-img', 'create', '-b', self.configured_base_images[base_image]['image_filename'], '-f', 'qcow2', full_path_image_file])
+            base_image_conf = bim.get_base_image_configuration(allocated_image_conf['base_image_id'])
+            if base_image_conf is not None and base_image_conf.has_key('base_image_file') and base_image_conf.has_key('configuration_template'):
+                full_path_base_image_file = self.__base_disk_image_path(base_image_conf['base_image_file'])
+                full_path_xml_template_file = self.__base_xml_template_path(base_image_conf['configuration_template'])
 
-            f = open(self.configured_base_images[base_image]['template_filename'], 'r')
-            xmlspec = f.read()
-            f.close()
-            xmlspec = xmlspec.replace('$(VM_ID)', image_id)
-            xmlspec = xmlspec.replace('$(IMAGE_FILE)', full_path_image_file)
-            xmlspec = xmlspec.replace('$(MAC_ADDRESS)', mac)
-            f = open(full_path_xml_def_file, 'w')
-            f.write(xmlspec)
-            f.close()
+            if allocated_image_conf.has_key('mac_id'):
+                mac = mip.get_mac_for_mac_id(allocated_image_conf['mac_id'])
+
+            if full_path_base_image_file is not None and full_path_xml_template_file is not None and mac is not None:
+                subprocess.call(['qemu-img', 'create', '-b', full_path_base_image_file, '-f', 'qcow2', self.__cloned_disk_image_path(image_id)])
+
+                f = open(full_path_xml_template_file, 'r')
+                xmlspec = f.read()
+                f.close()
+                xmlspec = xmlspec.replace('$(VM_ID)', image_id)
+                xmlspec = xmlspec.replace('$(IMAGE_FILE)', self.__cloned_disk_image_path(image_id))
+                xmlspec = xmlspec.replace('$(MAC_ADDRESS)', mac)
+                f = open(self.__cloned_xml_definition_path(image_id), 'w')
+                f.write(xmlspec)
+                f.close()
 
         self.sync_lock.release()
 
     def __poweron_image(self, image_id):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+
         self.sync_lock.acquire()
-        if self.allocated_images.has_key(image_id):
-            full_path_xml_def_file = self.allocated_images[image_id]['xml_def_path']
+        allocated_image_conf = ali.get_configuration(image_id)
+        if allocated_image_conf is not None:
+            full_path_xml_def_file = self.__cloned_xml_definition_path(image_id)
             subprocess.call(['virsh', 'create', full_path_xml_def_file])
         self.sync_lock.release()
 
     def __poweroff_image(self, image_id):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+
         self.sync_lock.acquire()
-        if self.allocated_images.has_key(image_id):
+        allocated_image_conf = ali.get_configuration(image_id)
+        if allocated_image_conf is not None:
             subprocess.call(['virsh', 'destroy', image_id])
         self.sync_lock.release()
 
     def __destroy_image(self, image_id):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+
         self.sync_lock.acquire()
-        if self.allocated_images.has_key(image_id):
-            os.remove(self.allocated_images[image_id]['image_file_path'])
-            os.remove(self.allocated_images[image_id]['xml_def_path'])
+        allocated_image_conf = ali.get_configuration(image_id)
+        if allocated_image_conf is not None:
+            os.remove(self.__cloned_disk_image_path(image_id))
+            os.remove(self.__cloned_xml_definition_path(image_id))
         self.sync_lock.release()
 
     def __cleanup_expired_images(self):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        bim = VMAllocationServiceDAO.BaseImages(dbc)
+        mip = VMAllocationServiceDAO.MacIpPairs(dbc)
+        timenow = int(time.time())
+
         self.sync_lock.acquire()
-        image_ids = self.allocated_images.keys()
+        image_ids = ali.get_images()
         for image_id in image_ids:
-            image_record = self.allocated_images[image_id]
-            time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
-            if time_before_expiry < 0:
-                self.__poweroff_image(image_id)
-                self.__destroy_image(image_id)
-                self.deallocate_mac(image_record['mac'])
-                del self.allocated_images[image_id]
+            image_record = ali.get_configuration(image_id)
+            if image_record is not None and image_record.has_key('creation_time') and image_record.has_key('valid_for'):
+                time_before_expiry = image_record['creation_time'] + image_record['valid_for'] - int(time.time())
+                if time_before_expiry < 0:
+                    self.__poweroff_image(image_id)
+                    self.__destroy_image(image_id)
+                    if image_record.has_key('mac_id'):
+                        mip.deallocate(image_record['mac_id'])
+                    ali.deallocate(image_id)
         self.sync_lock.release()
 
-    def allocate_image(self, base_image, expires, comment):
+    def allocate_image(self, base_image, valid_for, comment):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        bim = VMAllocationServiceDAO.BaseImages(dbc)
+        mip = VMAllocationServiceDAO.MacIpPairs(dbc)
+
+        image_id = str(uuid.uuid4())
+
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
 
-        if not self.configured_base_images.has_key(base_image):
+        base_image_conf = bim.get_base_image_configuration_by_name(base_image)
+        if base_image_conf is None or not base_image_conf.has_key('id') or not base_image_conf.has_key('base_image_file') or not base_image_conf.has_key('configuration_template'):
             self.sync_lock.release()
             return { 'result': False, 'error': 'No such base image configured' }
 
-        mac = self.allocate_mac()
-        if mac is None:
+        mac_id = mip.allocate(valid_for=valid_for)
+        if mac_id is None:
             self.sync_lock.release()
             return { 'result': False, 'error': 'Could not allocate a free MAC address' }
 
-        image_id = str(uuid.uuid4())
-        ip_addr = self.find_ip_for_mac(mac)
+        if ali.allocate(image_id, mac_id, base_image_conf['id'], valid_for=valid_for, comment=comment) == False:
+            mip.deallocate(mac_id)
+            self.sync_lock.release()
+            return { 'result': False, 'error': 'Failed to allocate image' }
 
-        full_path_image_file = '/var/lib/libvirt/images/active_dynamic/%s.img' % image_id
-        full_path_xml_def_file = '/var/lib/libvirt/qemu/active_dynamic/%s.xml' % image_id
-
-        allocated_info = {}
-        allocated_info['image_id'] = image_id
-        allocated_info['mac'] = mac
-        allocated_info['ip_addr'] = ip_addr
-        allocated_info['base_image'] = base_image
-        allocated_info['creation_time'] = int(time.time())
-        allocated_info['expires'] = expires
-        allocated_info['comment'] = ''
-        if comment is not None:
-            allocated_info['comment'] = comment
-        allocated_info['image_file_path'] = full_path_image_file
-        allocated_info['xml_def_path'] = full_path_xml_def_file
-
-        self.allocated_images[image_id] = allocated_info
+        ip_addr = mip.get_ip_for_mac_id(mac_id)
 
         self.__create_image(image_id)
         self.__poweron_image(image_id)
 
-        ret_val = { 'result': True, 'image_id': image_id, 'ip_addr': ip_addr, 'base_image': base_image, 'expires': expires }        
+        ret_val = { 'result': True, 'image_id': image_id, 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for }        
         self.sync_lock.release()
         return ret_val
 
     def deallocate_image(self, image_id):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        mip = VMAllocationServiceDAO.MacIpPairs(dbc)
+
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
         ret_val = { 'result': False, 'error': 'No such image' }
 
-        if self.allocated_images.has_key(image_id):
+        allocated_image_conf = ali.get_configuration(image_id)
+        if allocated_image_conf is not None:
             self.__poweroff_image(image_id)
             self.__destroy_image(image_id)
-            self.deallocate_mac(self.allocated_images[image_id]['mac'])
+            if allocated_image_conf.has_key('mac_id'):
+                mip.deallocate(allocated_image_conf['mac_id'])
+            ali.deallocate(image_id)
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
-            del self.allocated_images[image_id]
 
         self.sync_lock.release()
         return ret_val
 
     def revert_image(self, image_id):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
         ret_val = { 'result': False, 'error': 'No such image' }
 
-        if self.allocated_images.has_key(image_id):
-            image_record = self.allocated_images[image_id]
-            time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
+        allocated_image_conf = ali.get_configuration(image_id)
+        if allocated_image_conf is not None:
             self.__poweroff_image(image_id)
             self.__destroy_image(image_id)
             self.__create_image(image_id)
             self.__poweron_image(image_id)
-            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
+            ret_val = { 'result': True, 'image_id': image_id }
 
         self.sync_lock.release()
         return ret_val
 
     def image_status(self, image_id):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+        bim = VMAllocationServiceDAO.BaseImages(dbc)
+        mip = VMAllocationServiceDAO.MacIpPairs(dbc)
+
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
         ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
 
-        if self.allocated_images.has_key(image_id):
-            image_record = self.allocated_images[image_id]
-            time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
-            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
+        allocated_image_conf = ali.get_configuration(image_id)
+        if allocated_image_conf is not None:
+            valid_for = 0
+            ip_addr = None
+            base_image = None
+            comment = None
+
+            if allocated_image_conf.has_key('creation_time') and allocated_image_conf.has_key('valid_for'):
+                valid_for = allocated_image_conf['creation_time'] + allocated_image_conf['valid_for'] - int(time.time())
+            if allocated_image_conf.has_key('mac_id'):
+                ip_addr = mip.get_ip_for_mac_id(allocated_image_conf['mac_id'])
+            if allocated_image_conf.has_key('base_image_id'):
+                base_image_record = bim.get_base_image_configuration(allocated_image_conf['base_image_id'])
+                if base_image_record is not None and base_image_record.has_key('base_image_name'):
+                    base_image = base_image_record['base_image_name']
+            if allocated_image_conf.has_key('comment'):
+                comment = allocated_image_conf['comment']
+            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'comment': comment }
 
         self.sync_lock.release()
         return ret_val
 
     def poweroff_image(self, image_id):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
         ret_val = { 'result': False, 'error': 'no such image' }
 
-        if self.allocated_images.has_key(image_id):
+        allocated_image_conf = ali.get_configuration(image_id)
+        if allocated_image_conf is not None:
             self.__poweroff_image(image_id)
             ret_val = { 'result': True, 'image_id': image_id }
 
@@ -167,57 +237,28 @@ class VMAllocationService():
         return ret_val
 
     def poweron_image(self, image_id):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
         ret_val = { 'result': False, 'error': 'no such image' }
 
-        if self.allocated_images.has_key(image_id):
-            self.__poweroon_image(image_id)
+        allocated_image_conf = ali.get_configuration(image_id)
+        if allocated_image_conf is not None:
+            self.__poweron_image(image_id)
             ret_val = { 'result': True, 'image_id': image_id }
 
         self.sync_lock.release()
         return ret_val
 
     def status(self):
+        dbc = VMAllocationServiceDAO.DatabaseConnection(database=self.database)
+        ali = VMAllocationServiceDAO.AllocatedImages(dbc)
+
         self.sync_lock.acquire()
         self.__cleanup_expired_images()
-        ret_val = { 'result': True, 'allocated_images': len(self.allocated_images) }
+        images = ali.get_images()
+        ret_val = { 'result': True, 'allocated_images': len(images) }
         self.sync_lock.release()
         return ret_val
-
-    def define_mac_ip_pair(self, mac, ip):
-        self.sync_lock.acquire()
-        self.mac_ip_records[mac] = { 'ip_addr': ip, 'mac': mac, 'allocated': False }
-        self.sync_lock.release()
-
-    def allocate_mac(self):
-        self.sync_lock.acquire()
-        ret_val = None
-        mac_keys = self.mac_ip_records.keys()
-        random.shuffle(mac_keys)
-        for key in mac_keys:
-            if self.mac_ip_records[key]['allocated'] == False:
-                self.mac_ip_records[key]['allocated'] = True
-                ret_val = key
-                break
-        self.sync_lock.release()
-        return ret_val
-
-    def deallocate_mac(self, mac):
-        self.sync_lock.acquire()
-        if self.mac_ip_records.has_key(mac):
-            self.mac_ip_records[mac]['allocated'] = False
-        self.sync_lock.release()
-
-    def find_ip_for_mac(self, mac):
-        self.sync_lock.acquire()
-        ret_val = None
-        if self.mac_ip_records.has_key(mac):
-            ret_val = self.mac_ip_records[mac]['ip_addr']
-        self.sync_lock.release()
-        return ret_val
-
-    def define_base_image(self, base_id, template_filename, image_filename):
-        self.sync_lock.acquire()
-        self.configured_base_images[base_id] = { 'base_id': base_id, 'template_filename': template_filename, 'image_filename': image_filename }
-        self.sync_lock.release()
