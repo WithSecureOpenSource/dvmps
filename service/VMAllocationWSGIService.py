@@ -44,6 +44,18 @@ def vm_allocator_app(environ, start_response):
                 image_id = request_params['image_id']
             if image_id is not None:
                 res = vma.revert_image(image_id)
+        elif command == '/poweroff':
+            image_id = None
+            if request_params.has_key('image_id'):
+                image_id = request_params['image_id']
+            if image_id is not None:
+                res = vma.poweroff_image(image_id)
+        elif command == '/poweron':
+            image_id = None
+            if request_params.has_key('image_id'):
+                image_id = request_params['image_id']
+            if image_id is not None:
+                res = vma.poweron_image(image_id)
         elif command == '/status':
             image_id = None
             if request_params.has_key('image_id'):

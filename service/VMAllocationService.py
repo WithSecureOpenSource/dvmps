@@ -13,7 +13,7 @@ class VMAllocationService():
         self.configured_base_images = {}
         self.sync_lock = threading.RLock()
 
-    def __create_and_launch_image(self, image_id):
+    def __create_image(self, image_id):
         self.sync_lock.acquire()
         if self.allocated_images.has_key(image_id):
             base_image = self.allocated_images[image_id]['base_image']
@@ -33,13 +33,24 @@ class VMAllocationService():
             f.write(xmlspec)
             f.close()
 
+        self.sync_lock.release()
+
+    def __poweron_image(self, image_id):
+        self.sync_lock.acquire()
+        if self.allocated_images.has_key(image_id):
+            full_path_xml_def_file = self.allocated_images[image_id]['xml_def_path']
             subprocess.call(['virsh', 'create', full_path_xml_def_file])
+        self.sync_lock.release()
+
+    def __poweroff_image(self, image_id):
+        self.sync_lock.acquire()
+        if self.allocated_images.has_key(image_id):
+            subprocess.call(['virsh', 'destroy', image_id])
         self.sync_lock.release()
 
     def __destroy_image(self, image_id):
         self.sync_lock.acquire()
         if self.allocated_images.has_key(image_id):
-            subprocess.call(['virsh', 'destroy', image_id])
             os.remove(self.allocated_images[image_id]['image_file_path'])
             os.remove(self.allocated_images[image_id]['xml_def_path'])
         self.sync_lock.release()
@@ -51,6 +62,7 @@ class VMAllocationService():
             image_record = self.allocated_images[image_id]
             time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
             if time_before_expiry < 0:
+                self.__poweroff_image(image_id)
                 self.__destroy_image(image_id)
                 self.deallocate_mac(image_record['mac'])
                 del self.allocated_images[image_id]
@@ -90,7 +102,8 @@ class VMAllocationService():
 
         self.allocated_images[image_id] = allocated_info
 
-        self.__create_and_launch_image(image_id)
+        self.__create_image(image_id)
+        self.__poweron_image(image_id)
 
         ret_val = { 'result': True, 'image_id': image_id, 'ip_addr': ip_addr, 'base_image': base_image, 'expires': expires }        
         self.sync_lock.release()
@@ -102,6 +115,7 @@ class VMAllocationService():
         ret_val = { 'result': False, 'error': 'No such image' }
 
         if self.allocated_images.has_key(image_id):
+            self.__poweroff_image(image_id)
             self.__destroy_image(image_id)
             self.deallocate_mac(self.allocated_images[image_id]['mac'])
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
@@ -118,8 +132,10 @@ class VMAllocationService():
         if self.allocated_images.has_key(image_id):
             image_record = self.allocated_images[image_id]
             time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
+            self.__poweroff_image(image_id)
             self.__destroy_image(image_id)
-            self.__create_and_launch_image(image_id)
+            self.__create_image(image_id)
+            self.__poweron_image(image_id)
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
 
         self.sync_lock.release()
@@ -134,6 +150,30 @@ class VMAllocationService():
             image_record = self.allocated_images[image_id]
             time_before_expiry = image_record['creation_time'] + image_record['expires'] - int(time.time())
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': image_record['ip_addr'], 'base_image': image_record['ip_addr'], 'expires': time_before_expiry, 'comment': image_record['comment'] }
+
+        self.sync_lock.release()
+        return ret_val
+
+    def poweroff_image(self, image_id):
+        self.sync_lock.acquire()
+        self.__cleanup_expired_images()
+        ret_val = { 'result': False, 'error': 'no such image' }
+
+        if self.allocated_images.has_key(image_id):
+            self.__poweroff_image(image_id)
+            ret_val = { 'result': True, 'image_id': image_id }
+
+        self.sync_lock.release()
+        return ret_val
+
+    def poweron_image(self, image_id):
+        self.sync_lock.acquire()
+        self.__cleanup_expired_images()
+        ret_val = { 'result': False, 'error': 'no such image' }
+
+        if self.allocated_images.has_key(image_id):
+            self.__poweroon_image(image_id)
+            ret_val = { 'result': True, 'image_id': image_id }
 
         self.sync_lock.release()
         return ret_val
