@@ -1,146 +1,136 @@
 import sys
 import json
 import urllib2
+from optparse import OptionParser
+import urlparse
 
-#SERVER_BASE_URL='http://gtnklcloud1.klrdc.gtn'
-SERVER_BASE_URL='http://10.133.13.170'
+def __build_url(options, command):
+    (scheme, netloc, path, query, fragment) = urlparse.urlsplit(options.serverurl)
+    url = urlparse.urlunsplit((scheme, netloc, command, '', ''))
+    return url
 
-def allocate(base_image, expires, comment):
+def allocate(options, base_image, expires, comment):
     data = { 'base_image': base_image, 'expires': expires, 'comment': comment }
     data_str = json.dumps(data)
-    o = urllib2.urlopen(SERVER_BASE_URL + '/allocate', data_str)
+    url = __build_url(options, 'allocate')
+    o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def deallocate(image_id):
+def deallocate(options, image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
-    o = urllib2.urlopen(SERVER_BASE_URL + '/deallocate', data_str)
+    url = __build_url(options, 'deallocate')
+    o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def revert(image_id):
+def revert(options, image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
-    o = urllib2.urlopen(SERVER_BASE_URL + '/revert', data_str)
+    url = __build_url(options, 'revert')
+    o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def poweroff(image_id):
+def poweroff(options, image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
-    o = urllib2.urlopen(SERVER_BASE_URL + '/poweroff', data_str)
+    url = __build_url(options, 'poweroff')
+    o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def poweron(image_id):
+def poweron(options, image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
-    o = urllib2.urlopen(SERVER_BASE_URL + '/poweron', data_str)
+    url = __build_url(options, 'poweron')
+    o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def status(image_id):
+def status(options, image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
-    o = urllib2.urlopen(SERVER_BASE_URL + '/status', data_str)
+    url = __build_url(options, 'status')
+    o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def systemstatus():
-    o = urllib2.urlopen(SERVER_BASE_URL + '/systemstatus', json.dumps(None))
+def systemstatus(options):
+    url = __build_url(options, 'systemstatus')
+    o = urllib2.urlopen(url, json.dumps(None))
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
 def usage():
-    print "Usage: %s <command> <arguments..>" % sys.argv[0]
-    print " %s allocate <base_image> [<expiry>] [<comment>]" % sys.argv[0]
+    print "Usage: %s [<options>] <command> <arguments..>" % sys.argv[0]
+    print " %s allocate <base_image>" % sys.argv[0]
     print " %s deallocate <image_id>" % sys.argv[0]
     print " %s revert <image_id>" % sys.argv[0]
     print " %s poweroff <image_id>" % sys.argv[0]
     print " %s poweron <image_id>" % sys.argv[0]
     print " %s status <image_id>" % sys.argv[0]
     print " %s systemstatus" % sys.argv[0]
-    
+    print ""
+    print "Options:"
+    print "--serverurl  <url>       Base URL for allocation server (e.g. http://dyn-node1.example.com) [mandatory]"
+    print "--validfor   <seconds>   Specify maximum lifetime of <seconds> upon instance allocation or renewal (default 3600 seconds or 1 hour)"
+    print "--comment    <comment>   Specify comment upon instance allocation"
+
 if __name__ == '__main__':
-    ret = None
-    arglen = len(sys.argv)
-    if arglen < 2:
-        print "Too few arguments!"
+    parser = OptionParser()
+    parser.add_option('--serverurl', dest='serverurl')
+    parser.add_option('--validfor', dest='validfor', type='int', default='3600')
+    parser.add_option('--comment', dest='comment', default='')
+    (options, args) = parser.parse_args()
+
+    if options.serverurl == None:
+        print "Mandatory --serverurl option was not given"
         usage()
         sys.exit(-1)
-    command = sys.argv[1]
+
+    ret = None
+    arglen = len(args)
+    if arglen < 1:
+        usage()
+        sys.exit(-1)
+    command = args[0]
+
+    if command == 'systemstatus':
+        ret = systemstatus(options)
+        print json.dumps(ret, indent=4)
+        sys.exit(0)
+
+    if arglen < 2:
+        usage()
+        sys.exit(-1)
+
     if command == 'allocate':
-        base_image = None
-        expires = 3600
-        comment = ''
-        if arglen < 3:
-            print "Missing base image!"
-            usage()
-            sys.exit(-1)
-        base_image = sys.argv[2]
-        if arglen > 3:
-            expires = int(sys.argv[3])
-        if arglen > 4:
-            comment = sys.argv[3]
-        ret = allocate(base_image, expires, comment)
+        ret = allocate(options, args[1], options.validfor, options.comment)
         print json.dumps(ret, indent=4)
     elif command == 'deallocate':
-        image_id = None
-        if arglen < 3:
-            print "Missing image id!"
-            usage()
-            sys.exit(-1)
-        image_id = sys.argv[2]
-        ret = deallocate(image_id)
+        ret = deallocate(options, args[1])
         print json.dumps(ret, indent=4)
     elif command == 'revert':
-        image_id = None
-        if arglen < 3:
-            print "Missing image id!"
-            usage()
-            sys.exit(-1)
-        image_id = sys.argv[2]
-        ret = revert(image_id)
+        ret = revert(options, args[1])
         print json.dumps(ret, indent=4)
     elif command == 'poweroff':
-        image_id = None
-        if arglen < 3:
-            print "Missing image id!"
-            usage()
-            sys.exit(-1)
-        image_id = sys.argv[2]
-        ret = poweroff(image_id)
+        ret = poweroff(options, args[1])
         print json.dumps(ret, indent=4)
     elif command == 'poweron':
-        image_id = None
-        if arglen < 3:
-            print "Missing image id!"
-            usage()
-            sys.exit(-1)
-        image_id = sys.argv[2]
-        ret = poweron(image_id)
+        ret = poweron(options, args[1])
         print json.dumps(ret, indent=4)
     elif command == 'status':
-        image_id = None
-        if arglen < 3:
-            print "Missing image id!"
-            usage()
-            sys.exit(-1)
-        image_id = sys.argv[2]
-        ret = status(image_id)
-        print json.dumps(ret, indent=4)
-    elif command == 'systemstatus':
-        ret = systemstatus()
+        ret = status(options, args[1])
         print json.dumps(ret, indent=4)
     else:
-        print "Unknown command"
         usage()
         sys.exit(-1)
