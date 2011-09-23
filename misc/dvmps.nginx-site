@@ -1,0 +1,17 @@
+upstream dvmps_fcgi {
+    server unix:/var/opt/dvmps/run/fcgi-dvmps-1.socket;
+}
+
+server {
+        listen   80; ## listen for ipv4
+        listen   [::]:80 default ipv6only=on; ## listen for ipv6
+
+        server_name  localhost;
+
+        access_log  /var/log/nginx/localhost.access.log;
+
+        location / {
+                fastcgi_pass            dvmps_fcgi;
+                include                 fastcgi_params;
+        }
+}
