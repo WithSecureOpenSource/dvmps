@@ -188,15 +188,14 @@ class DVMPSService():
         self.sync_lock.release()
         return ret_val
 
-    def image_status(self, image_id):
+    def __image_status(self, image_id):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
         bim = DVMPSDAO.BaseImages(dbc)
         mip = DVMPSDAO.MacIpPairs(dbc)
 
         self.sync_lock.acquire()
-        self.__cleanup_expired_images()
-        ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
+        ret_val = None
 
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
@@ -217,6 +216,15 @@ class DVMPSService():
                 comment = allocated_image_conf['comment']
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'comment': comment }
 
+        self.sync_lock.acquire()
+        return ret_val
+
+    def image_status(self, image_id):
+        self.sync_lock.acquire()
+        self.__cleanup_expired_images()
+        ret_val = self.__image_status(image_id)
+        if ret_val is None:
+            ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
         self.sync_lock.release()
         return ret_val
 
@@ -262,3 +270,28 @@ class DVMPSService():
         ret_val = { 'result': True, 'allocated_images': len(images) }
         self.sync_lock.release()
         return ret_val
+
+    def running_images(self):
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
+
+        self.sync_lock.acquire()
+        self.__cleanup_expired_images()
+        images = ali.get_images()
+        image_statuses = []
+        for image in images:
+            image_status = self.__image_status(image)
+            if image_status != None:
+                image_statuses.append(image_status)
+        ret_val = { 'result': True, 'running_images': image_statuses }
+        self.sync_lock.release()
+        return ret_val
+
+    def base_images(self):
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        bim = DVMPSDAO.BaseImages(dbc)
+
+        self.sync_lock.acquire()
+        base_images = bim.get_base_images()
+        self.sync_lock.release()
+        return { 'result': True, 'base_images': base_images }

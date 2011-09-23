@@ -70,6 +70,20 @@ def systemstatus(options):
     rep = json.loads(rep_str)
     return rep
 
+def running_images(options):
+    url = __build_url(options, 'running_images')
+    o = urllib2.urlopen(url, json.dumps(None))
+    rep_str = o.read()
+    rep = json.loads(rep_str)
+    return rep
+
+def base_images(options):
+    url = __build_url(options, 'base_images')
+    o = urllib2.urlopen(url, json.dumps(None))
+    rep_str = o.read()
+    rep = json.loads(rep_str)
+    return rep
+
 def usage():
     print "Usage: %s [<options>] <command> <arguments..>" % sys.argv[0]
     print " %s allocate <base_image>" % sys.argv[0]
@@ -79,6 +93,8 @@ def usage():
     print " %s poweron <image_id>" % sys.argv[0]
     print " %s status <image_id>" % sys.argv[0]
     print " %s systemstatus" % sys.argv[0]
+    print " %s running_images" % sys.argv[0]
+    print " %s base_images" % sys.argv[0]
     print ""
     print "Options:"
     print "--serverurl  <url>       Base URL for allocation server (e.g. http://dyn-node1.example.com) [mandatory]"
@@ -106,6 +122,14 @@ if __name__ == '__main__':
 
     if command == 'systemstatus':
         ret = systemstatus(options)
+        print json.dumps(ret, indent=4)
+        sys.exit(0)
+    elif command == 'running_images':
+        ret = running_images(options)
+        print json.dumps(ret, indent=4)
+        sys.exit(0)
+    elif command == 'base_images':
+        ret = base_images(options)
         print json.dumps(ret, indent=4)
         sys.exit(0)
 

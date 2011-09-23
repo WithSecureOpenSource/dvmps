@@ -34,6 +34,16 @@ class BaseImages:
         cursor.close()
         return ret
 
+    def get_base_images(self):
+        ret = []
+        cursor = self.dbc.dbconnection.cursor()
+        cursor.execute("select id, base_image_name, configuration_template, base_image_file, description from base_images")
+        base_images = cursor.fetchall()
+        for base in base_images:
+            ret.append({ "id": base[0], "base_image_name" : base[1], "configuration_template": base[2], "base_image_file": base[3], "description": base[4] })
+        cursor.close()
+        return ret
+
 class MacIpPairs:
     def __init__(self, dbaseconnection):
         self.dbc = dbaseconnection
