@@ -216,7 +216,7 @@ class DVMPSService():
                 comment = allocated_image_conf['comment']
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'comment': comment }
 
-        self.sync_lock.acquire()
+        self.sync_lock.release()
         return ret_val
 
     def image_status(self, image_id):
