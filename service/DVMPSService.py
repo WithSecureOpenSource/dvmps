@@ -6,6 +6,8 @@ import os
 import uuid
 import random
 import DVMPSDAO
+import libvirt
+import xml.dom.minidom as minidom
 
 class DVMPSService():
     def __init__(self, database=None):
@@ -23,6 +25,24 @@ class DVMPSService():
 
     def __base_xml_template_path(self, filename):
         return '/var/lib/libvirt/qemu/templates/%s' % filename
+
+    def __get_vnc_port(self, image_id):
+        port = None
+        try:
+            connection = libvirt.openReadOnly(None)
+            if connection is not None:
+                domain = connection.lookupByName(image_id)
+                if domain is not None:
+                    xmlspec = domain.XMLDesc(0)
+                    dom = minidom.parseString(xmlspec)
+                    nodes = dom.getElementsByTagName('graphics')
+                    for node in nodes:
+                        port_candidate = node.getAttribute('port')
+                        if port_candidate is not None and port_candidate != '':
+                            port = str(port_candidate)
+        except:
+            pass
+        return port
 
     def __create_image(self, image_id):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
@@ -88,8 +108,14 @@ class DVMPSService():
         self.sync_lock.acquire()
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
-            os.remove(self.__cloned_disk_image_path(image_id))
-            os.remove(self.__cloned_xml_definition_path(image_id))
+            try:
+                os.remove(self.__cloned_disk_image_path(image_id))
+            except:
+                pass
+            try:
+                os.remove(self.__cloned_xml_definition_path(image_id))
+            except:
+                pass
         self.sync_lock.release()
 
     def __cleanup_expired_images(self):
@@ -144,7 +170,7 @@ class DVMPSService():
         self.__create_image(image_id)
         self.__poweron_image(image_id)
 
-        ret_val = { 'result': True, 'image_id': image_id, 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for }        
+        ret_val = self.__image_status(image_id)
         self.sync_lock.release()
         return ret_val
 
@@ -183,7 +209,7 @@ class DVMPSService():
             self.__destroy_image(image_id)
             self.__create_image(image_id)
             self.__poweron_image(image_id)
-            ret_val = { 'result': True, 'image_id': image_id }
+            ret_val = self.__image_status(image_id)
 
         self.sync_lock.release()
         return ret_val
@@ -214,7 +240,7 @@ class DVMPSService():
                     base_image = base_image_record['base_image_name']
             if allocated_image_conf.has_key('comment'):
                 comment = allocated_image_conf['comment']
-            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'comment': comment }
+            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'comment': comment, 'vncport': self.__get_vnc_port(image_id) }
 
         self.sync_lock.release()
         return ret_val
@@ -255,7 +281,7 @@ class DVMPSService():
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
             self.__poweron_image(image_id)
-            ret_val = { 'result': True, 'image_id': image_id }
+            ret_val = self.__image_status(image_id)
 
         self.sync_lock.release()
         return ret_val
