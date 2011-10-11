@@ -192,7 +192,7 @@ class AllocatedImages:
     def get_images_below_priority(self, priority):
         ret = []
         cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("select instance_name from allocated where priority < %d", (priority,))
+        cursor.execute("select instance_name from allocated where priority < %d order by priority", (priority,))
         image_records = cursor.fetchall()
         for image in image_records:
             ret.append(image[0])
