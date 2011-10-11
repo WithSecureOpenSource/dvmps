@@ -139,7 +139,7 @@ class DVMPSService():
                     ali.deallocate(image_id)
         self.sync_lock.release()
 
-    def allocate_image(self, base_image, valid_for, comment):
+    def allocate_image(self, base_image, valid_for, priority, comment):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
         bim = DVMPSDAO.BaseImages(dbc)
@@ -155,12 +155,31 @@ class DVMPSService():
             self.sync_lock.release()
             return { 'result': False, 'error': 'No such base image configured' }
 
-        mac_id = mip.allocate(valid_for=valid_for)
+        while True:
+            mac_id = mip.allocate(valid_for=valid_for)
+            if mac_id is not None:
+                break
+            else:
+                lower_priority_images = ali.get_images_below_priority(priority)
+                if len(lower_priority_images) == 0:
+                    break
+                else:
+                    low_image_id = lower_priority_images[0]
+                    low_image_conf = ali.get_configuration(low_image_id)
+                    if low_image_conf is not None:
+                        self.__poweroff_image(low_image_id)
+                        self.__destroy_image(low_image_id)
+                        if low_image_conf.has_key('mac_id'):
+                            mip.deallocate(low_image_conf['mac_id'])
+                        ali.deallocate(low_image_id)
+                    else:
+                        break
+
         if mac_id is None:
             self.sync_lock.release()
             return { 'result': False, 'error': 'Could not allocate a free MAC address' }
 
-        if ali.allocate(image_id, mac_id, base_image_conf['id'], valid_for=valid_for, comment=comment) == False:
+        if ali.allocate(image_id, mac_id, base_image_conf['id'], valid_for=valid_for, comment=comment, priority=priority) == False:
             mip.deallocate(mac_id)
             self.sync_lock.release()
             return { 'result': False, 'error': 'Failed to allocate image' }
@@ -229,6 +248,7 @@ class DVMPSService():
             ip_addr = None
             base_image = None
             comment = None
+            priority = 50
 
             if allocated_image_conf.has_key('creation_time') and allocated_image_conf.has_key('valid_for'):
                 valid_for = allocated_image_conf['creation_time'] + allocated_image_conf['valid_for'] - int(time.time())
@@ -240,7 +260,9 @@ class DVMPSService():
                     base_image = base_image_record['base_image_name']
             if allocated_image_conf.has_key('comment'):
                 comment = allocated_image_conf['comment']
-            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'comment': comment, 'vncport': self.__get_vnc_port(image_id) }
+            if allocated_image_conf.has_key('priority'):
+                priority = allocated_image_conf['priority']
+            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'priority': priority, 'comment': comment, 'vncport': self.__get_vnc_port(image_id) }
 
         self.sync_lock.release()
         return ret_val

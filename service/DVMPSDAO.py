@@ -137,11 +137,11 @@ class AllocatedImages:
     def __init__(self, dbaseconnection):
         self.dbc = dbaseconnection
 
-    def allocate(self, instance_name, mac_id, base_image_id, valid_for=3600, comment=''):
+    def allocate(self, instance_name, mac_id, base_image_id, valid_for=3600, priority=50, comment=''):
         result = False
         timenow = int(time.time())
         cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("insert into allocated (instance_name, mac_id, base_image_id, creation_time, valid_for, comment) values (%s, %d, %d, %d, %d, %s)", (instance_name, mac_id, base_image_id, timenow, valid_for, comment))
+        cursor.execute("insert into allocated (instance_name, mac_id, base_image_id, creation_time, valid_for, priority, comment) values (%s, %d, %d, %d, %d, %d, %s)", (instance_name, mac_id, base_image_id, timenow, valid_for, priority, comment))
         if cursor.rowcount > 0:
             result = True
         self.dbc.dbconnection.commit()
@@ -172,10 +172,10 @@ class AllocatedImages:
     def get_configuration(self, instance_name):
         ret = None
         cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("select id, instance_name, mac_id, base_image_id, creation_time, valid_for, comment from allocated where instance_name = %s", (instance_name,))
+        cursor.execute("select id, instance_name, mac_id, base_image_id, creation_time, valid_for, priority, comment from allocated where instance_name = %s", (instance_name,))
         if cursor.rowcount > 0:
             image = cursor.fetchone()
-            ret = { "id": image[0], "instance_name" : image[1], "mac_id": image[2], "base_image_id": image[3], "creation_time": image[4], "valid_for": image[5], "comment": image[6] }
+            ret = { "id": image[0], "instance_name" : image[1], "mac_id": image[2], "base_image_id": image[3], "creation_time": image[4], "valid_for": image[5], "priority": image[6], "comment": image[7] }
         cursor.close()
         return ret
 
@@ -183,6 +183,16 @@ class AllocatedImages:
         ret = []
         cursor = self.dbc.dbconnection.cursor()
         cursor.execute("select instance_name from allocated")
+        image_records = cursor.fetchall()
+        for image in image_records:
+            ret.append(image[0])
+        cursor.close()
+        return ret
+
+    def get_images_below_priority(self, priority):
+        ret = []
+        cursor = self.dbc.dbconnection.cursor()
+        cursor.execute("select instance_name from allocated where priority < %d", (priority,))
         image_records = cursor.fetchall()
         for image in image_records:
             ret.append(image[0])

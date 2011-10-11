@@ -26,5 +26,6 @@ create table allocated (
         base_image_id integer references base_images (id) not null,
         creation_time integer not null,
         valid_for integer not null,
+        priority integer not null,
         comment text
         );

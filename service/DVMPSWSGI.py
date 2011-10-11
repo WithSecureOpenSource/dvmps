@@ -25,14 +25,17 @@ class DVMPSWSGI:
                 base_image = None
                 expires = None
                 comment = None
+                priority = 50
                 if request_params.has_key('base_image'):
                     base_image = request_params['base_image']
                 if request_params.has_key('expires'):
                     expires = request_params['expires']
                 if request_params.has_key('comment'):
                     comment = request_params['comment']
+                if request_params.has_key('priority'):
+                    priority = request_params['priority']
                 if base_image is not None and expires is not None:
-                    res = self.dvmps.allocate_image(base_image, expires, comment)
+                    res = self.dvmps.allocate_image(base_image, expires, priority, comment)
             elif command == '/deallocate':
                 image_id = None
                 if request_params.has_key('image_id'):

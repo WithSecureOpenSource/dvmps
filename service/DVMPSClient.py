@@ -9,8 +9,8 @@ def __build_url(options, command):
     url = urlparse.urlunsplit((scheme, netloc, command, '', ''))
     return url
 
-def allocate(options, base_image, expires, comment):
-    data = { 'base_image': base_image, 'expires': expires, 'comment': comment }
+def allocate(options, base_image, expires, priority, comment):
+    data = { 'base_image': base_image, 'expires': expires, 'priority': priority, 'comment': comment }
     data_str = json.dumps(data)
     url = __build_url(options, 'allocate')
     o = urllib2.urlopen(url, data_str)
@@ -106,6 +106,7 @@ if __name__ == '__main__':
     parser.add_option('--serverurl', dest='serverurl')
     parser.add_option('--validfor', dest='validfor', type='int', default='3600')
     parser.add_option('--comment', dest='comment', default='')
+    parser.add_option('--priority', dest='priority', type='int', default='50')
     (options, args) = parser.parse_args()
 
     if options.serverurl == None:
@@ -138,7 +139,7 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     if command == 'allocate':
-        ret = allocate(options, args[1], options.validfor, options.comment)
+        ret = allocate(options, args[1], options.validfor, options.priority, options.comment)
         print json.dumps(ret, indent=4)
     elif command == 'deallocate':
         ret = deallocate(options, args[1])
