@@ -45,6 +45,7 @@ class DVMPSService():
         return port
 
     def __create_image(self, image_id):
+        retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
         bim = DVMPSDAO.BaseImages(dbc)
@@ -66,21 +67,23 @@ class DVMPSService():
                 mac = mip.get_mac_for_mac_id(allocated_image_conf['mac_id'])
 
             if full_path_base_image_file is not None and full_path_xml_template_file is not None and mac is not None:
-                subprocess.call(['qemu-img', 'create', '-b', full_path_base_image_file, '-f', 'qcow2', self.__cloned_disk_image_path(image_id)])
-
-                f = open(full_path_xml_template_file, 'r')
-                xmlspec = f.read()
-                f.close()
-                xmlspec = xmlspec.replace('$(VM_ID)', image_id)
-                xmlspec = xmlspec.replace('$(IMAGE_FILE)', self.__cloned_disk_image_path(image_id))
-                xmlspec = xmlspec.replace('$(MAC_ADDRESS)', mac)
-                f = open(self.__cloned_xml_definition_path(image_id), 'w')
-                f.write(xmlspec)
-                f.close()
+                if subprocess.call(['qemu-img', 'create', '-b', full_path_base_image_file, '-f', 'qcow2', self.__cloned_disk_image_path(image_id)]) == 0:
+                    f = open(full_path_xml_template_file, 'r')
+                    xmlspec = f.read()
+                    f.close()
+                    xmlspec = xmlspec.replace('$(VM_ID)', image_id)
+                    xmlspec = xmlspec.replace('$(IMAGE_FILE)', self.__cloned_disk_image_path(image_id))
+                    xmlspec = xmlspec.replace('$(MAC_ADDRESS)', mac)
+                    f = open(self.__cloned_xml_definition_path(image_id), 'w')
+                    f.write(xmlspec)
+                    f.close()
+                    retval = True
 
         self.sync_lock.release()
+        return retval
 
     def __poweron_image(self, image_id):
+        retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
@@ -88,8 +91,10 @@ class DVMPSService():
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
             full_path_xml_def_file = self.__cloned_xml_definition_path(image_id)
-            subprocess.call(['virsh', 'create', full_path_xml_def_file])
+            if subprocess.call(['virsh', 'create', full_path_xml_def_file]) == 0:
+                retval = True
         self.sync_lock.release()
+        return retval
 
     def __poweroff_image(self, image_id):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
@@ -186,8 +191,20 @@ class DVMPSService():
 
         ip_addr = mip.get_ip_for_mac_id(mac_id)
 
-        self.__create_image(image_id)
-        self.__poweron_image(image_id)
+        if self.__create_image(image_id) == True:
+            if self.__poweron_image(image_id) == True:
+                pass
+            else:
+                self.__destroy_image(image_id)
+                ali.deallocate(image_id)
+                mip.deallocate(mac_id)
+                self.sync_lock.release()
+                return { 'result': False, 'error': 'Failed to launch virtual machine' }
+        else:
+            ali.deallocate(image_id)
+            mip.deallocate(mac_id)
+            self.sync_lock.release()
+            return { 'result': False, 'error': 'Failed to create backing image' }
 
         ret_val = self.__image_status(image_id)
         self.sync_lock.release()
