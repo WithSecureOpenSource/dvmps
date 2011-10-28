@@ -1,0 +1,57 @@
+#!/usr/bin/python
+
+import sys
+import urllib2
+import json
+
+if len(sys.argv) == 2:
+    if sys.argv[1] == "config":
+        o = urllib2.urlopen('http://localhost/base_images', json.dumps(None))
+        d = o.read()
+        i = json.loads(d)
+        print "graph_title DVMPS - priorities by percentage"
+        print "graph_vlabel percent"
+        print "graph_category Virtual Machines"
+        print "graph_args --base 1000 -l 0 --upper-limit 100"
+
+        print "low.label low"
+        print "low.draw AREASTACK"
+        print "normal.label normal"
+        print "normal.draw AREASTACK"
+        print "high.label high"
+        print "high.draw AREASTACK"
+
+        sys.exit(0)
+
+pri_low = 0
+pri_nor = 0
+pri_hi = 0
+
+o = urllib2.urlopen('http://localhost/running_images', json.dumps(None))
+d = o.read()
+i = json.loads(d)
+
+for image in i['running_images']:
+    pri = image['priority']
+    if pri < 50:
+        pri_low = pri_low + 1 
+    elif pri > 50:
+        pri_hi = pri_hi + 1
+    else:
+        pri_nor = pri_nor + 1
+
+total = 0.0 + pri_low + pri_nor + pri_hi
+
+if total > 0:
+    pri_low_pct = 100 * pri_low / total
+    pri_nor_pct = 100 * pri_nor / total
+    pri_hi_pct = 100 * pri_hi / total
+else:
+    pri_low_pct = 0
+    pri_nor_pct = 0
+    pri_hi_pct = 0
+
+print "low.value %f" % pri_low_pct
+print "normal.value %f" % pri_nor_pct
+print "high.value %f" % pri_hi_pct
+

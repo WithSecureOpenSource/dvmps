@@ -1,0 +1,55 @@
+#!/usr/bin/python
+
+import sys
+import urllib2
+import json
+
+def get_image_key(element):
+    return element['base_image_name']
+
+if len(sys.argv) == 2:
+    if sys.argv[1] == "config":
+        o = urllib2.urlopen('http://localhost/base_images', json.dumps(None))
+        d = o.read()
+        i = json.loads(d)
+        print "graph_title DVMPS - number of clones"
+        print "graph_vlabel number of instances"
+        print "graph_category Virtual Machines"
+
+#        images = sorted(i['base_images'], key=get_image_key)
+
+#        image_names = []
+#        for image in i['base_images']:
+#            image_name = image['base_image_name']
+#            image_names.append(image_name)
+
+#        print "graph_order %s" % (' '.join(image_names),)
+
+        for image in sorted(i['base_images'], key=get_image_key):
+            image_name = image['base_image_name']
+            print "%s.label %s" % (image_name,image_name)
+            print "%s.draw AREASTACK" % image_name
+        sys.exit(0)
+
+images = {}
+o = urllib2.urlopen('http://localhost/base_images', json.dumps(None))
+d = o.read()
+i = json.loads(d)
+
+for image in i['base_images']:
+    images[image['base_image_name']] = 0
+
+o = urllib2.urlopen('http://localhost/running_images', json.dumps(None))
+d = o.read()
+i = json.loads(d)
+
+for image in i['running_images']:
+    bi = image['base_image']
+    if images.has_key(bi):
+        images[bi] = images[bi] + 1 
+    else:
+        images[bi] = 1
+
+for k in sorted(images.keys()):
+    print "%s.value %d" % (k,images[k])
+

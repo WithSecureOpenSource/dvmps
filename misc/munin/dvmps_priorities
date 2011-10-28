@@ -1,0 +1,45 @@
+#!/usr/bin/python
+
+import sys
+import urllib2
+import json
+
+if len(sys.argv) == 2:
+    if sys.argv[1] == "config":
+        o = urllib2.urlopen('http://localhost/base_images', json.dumps(None))
+        d = o.read()
+        i = json.loads(d)
+        print "graph_title DVMPS - priorities"
+        print "graph_vlabel number of instances"
+        print "graph_category Virtual Machines"
+
+        print "low.label low"
+        print "low.draw AREASTACK"
+        print "normal.label normal"
+        print "normal.draw AREASTACK"
+        print "high.label high"
+        print "high.draw AREASTACK"
+
+        sys.exit(0)
+
+pri_low = 0
+pri_nor = 0
+pri_hi = 0
+
+o = urllib2.urlopen('http://localhost/running_images', json.dumps(None))
+d = o.read()
+i = json.loads(d)
+
+for image in i['running_images']:
+    pri = image['priority']
+    if pri < 50:
+        pri_low = pri_low + 1 
+    elif pri > 50:
+        pri_hi = pri_high + 1
+    else:
+        pri_nor = pri_nor + 1
+
+print "low.value %d" % pri_low
+print "normal.value %d" % pri_nor
+print "high.value %d" % pri_hi
+
