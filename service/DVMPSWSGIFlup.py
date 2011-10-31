@@ -3,6 +3,7 @@ import sys
 import optparse
 from flup.server.fcgi import WSGIServer
 import DVMPSWSGI
+import logging
 
 __appname__ = "dvmps-node"
 __usage__ = "%prog -f <socket_file>"
@@ -20,12 +21,16 @@ if __name__ == '__main__':
     p.set_usage(__usage__)
     p.add_option("-f", dest="socketfile", help="listen on <socketfile>")
     p.add_option("-d", dest="database", help="used datebase", default="dvmps") 
+    p.add_option("-l", dest="logfile", help="write log in file")
     opt, args = p.parse_args(sys.argv)
 
     if not opt.socketfile:
         print "ERROR: socketfile not specified"
         p.print_help()
         sys.exit(-1)
+
+    if opt.logfile is not None:
+        logging.basicConfig(filename=opt.logfile, level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     dvmps_wsgi = DVMPSWSGI.DVMPSWSGI(database=opt.database)
 

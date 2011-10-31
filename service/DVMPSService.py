@@ -7,10 +7,13 @@ import random
 import DVMPSDAO
 import libvirt
 import xml.dom.minidom as minidom
+import logging
+import sys
 
 class DVMPSService():
     def __init__(self, database=None):
         self.database = database
+        self.logger = logging.getLogger('dvmps')
 
     def __cloned_disk_image_path(self, image_id):
         return '/var/lib/libvirt/images/active_dynamic/%s.img' % image_id
@@ -38,8 +41,12 @@ class DVMPSService():
                         port_candidate = node.getAttribute('port')
                         if port_candidate is not None and port_candidate != '':
                             port = str(port_candidate)
+                else:
+                    self.logger.error("__get_vnc_port(%s): no such domain" % (image_id,))
+            else:
+                self.logger.error("__get_vnc_port(%s): no libvirt connection" % (image_id,))
         except:
-            pass
+            self.logger.error("__get_vnc_port(%s) exception: %s" % (image_id, str(sys.exc_info()[1]))) 
         return port
 
     def __create_image(self, image_id):
@@ -75,6 +82,12 @@ class DVMPSService():
                     f.write(xmlspec)
                     f.close()
                     retval = True
+                    self.logger.info("__create_image(%s): image successfully created" % (image_id,))
+                else:
+                    self.logger.error("__create_image(%s): qemu-img failed to create new overlay image" % (image_id,))
+
+        else:
+            self.logger.warn("__create_image(%s): failed to look up image configuration" % (image_id,))
 
         return retval
 
@@ -87,31 +100,56 @@ class DVMPSService():
         if allocated_image_conf is not None:
             full_path_xml_def_file = self.__cloned_xml_definition_path(image_id)
             if subprocess.call(['virsh', 'create', full_path_xml_def_file]) == 0:
+                self.logger.info("__poweron_image(%s): image successfully launched" % (image_id,))
                 retval = True
+            else:
+                self.logger.error("__poweron_image(%s): virsh failed with create command" % (image_id,))
+        else:
+            self.logger.warn("__poweron_image(%s): failed to look up image configuration" % (image_id,))
         return retval
 
     def __poweroff_image(self, image_id):
+        retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
-            subprocess.call(['virsh', 'destroy', image_id])
+            if subprocess.call(['virsh', 'destroy', image_id]) == 0:
+                self.logger.info("__poweroff_image(%s): image successfully destroyed" % (image_id,))
+                retval = True
+            else:
+                self.logger.error("__poweroff_image(%s): virsh failed with destroy command" % (image_id,))
+        else:
+            self.logger.warn("__poweroff_image(%s): failed to look up image configuration" % (image_id,))
+        return retval
 
     def __destroy_image(self, image_id):
+        retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
+            retval = True
             try:
                 os.remove(self.__cloned_disk_image_path(image_id))
             except:
+                self.logger.warn("__destroy_image(%s): failed to remove disk image %s" % (image_id, self.__cloned_disk_image_path(image_id)))
+                retval = False
                 pass
+
             try:
                 os.remove(self.__cloned_xml_definition_path(image_id))
             except:
+                self.logger.warn("__destroy_image(%s): failed to remove xml definition %s" % (image_id, self.__cloned_xml_definition_path(image_id)))
+                retval = False
                 pass
+
+            if retval == True:
+                self.logger.info("__destroy_image(%s): image successfully destroyed" % (image_id,))
+        else:
+            self.logger.warn("__destroy_image(%s): failed to look up image configuration" % (image_id,))
 
     def __cleanup_expired_images(self):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
@@ -126,6 +164,7 @@ class DVMPSService():
             if image_record is not None and image_record.has_key('creation_time') and image_record.has_key('valid_for'):
                 time_before_expiry = image_record['creation_time'] + image_record['valid_for'] - int(time.time())
                 if time_before_expiry < 0:
+                    self.logger.info("__cleanup_expired_images: found expired image %s" % (image_id,))
                     self.__poweroff_image(image_id)
                     self.__destroy_image(image_id)
                     if image_record.has_key('mac_id'):
@@ -142,8 +181,10 @@ class DVMPSService():
 
         self.__cleanup_expired_images()
 
+        self.logger.info("allocate_image: request to allocate image of type %s" % (base_image,))
         base_image_conf = bim.get_base_image_configuration_by_name(base_image)
         if base_image_conf is None or not base_image_conf.has_key('id') or not base_image_conf.has_key('base_image_file') or not base_image_conf.has_key('configuration_template'):
+            self.logger.warn("allocate_image: no such base_image configured %s" % (base_image,))
             return { 'result': False, 'error': 'No such base image configured' }
 
         while True:
@@ -158,6 +199,7 @@ class DVMPSService():
                     low_image_id = lower_priority_images[0]
                     low_image_conf = ali.get_configuration(low_image_id)
                     if low_image_conf is not None:
+                        self.logger.info("allocate_image: destroying lower priority image %s" % (low_image_id,))
                         self.__poweroff_image(low_image_id)
                         self.__destroy_image(low_image_id)
                         if low_image_conf.has_key('mac_id'):
@@ -167,9 +209,11 @@ class DVMPSService():
                         break
 
         if mac_id is None:
+            self.logger.warn("allocate_image: no free MAC/IP pairs")
             return { 'result': False, 'error': 'Could not allocate a free MAC address' }
 
         if ali.allocate(image_id, mac_id, base_image_conf['id'], valid_for=valid_for, comment=comment, priority=priority) == False:
+            self.logger.error("allocate_image: failed to allocate image (DAO)")
             mip.deallocate(mac_id)
             return { 'result': False, 'error': 'Failed to allocate image' }
 
@@ -179,15 +223,18 @@ class DVMPSService():
             if self.__poweron_image(image_id) == True:
                 pass
             else:
+                self.logger.error("allocate_image: failed to launch virtual machine")
                 self.__destroy_image(image_id)
                 ali.deallocate(image_id)
                 mip.deallocate(mac_id)
                 return { 'result': False, 'error': 'Failed to launch virtual machine' }
         else:
+            self.logger.error("allocate_image: failed to setup virtual machine")
             ali.deallocate(image_id)
             mip.deallocate(mac_id)
             return { 'result': False, 'error': 'Failed to create backing image' }
 
+        self.logger.info("allocate_image: successfully allocated image %s of type %s" % (image_id, base_image))
         ret_val = self.__image_status(image_id)
         return ret_val
 
@@ -201,12 +248,15 @@ class DVMPSService():
 
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
+            self.logger.info("deallocate_image(%s): deallocating" % (image_id,))
             self.__poweroff_image(image_id)
             self.__destroy_image(image_id)
             if allocated_image_conf.has_key('mac_id'):
                 mip.deallocate(allocated_image_conf['mac_id'])
             ali.deallocate(image_id)
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
+        else:
+            self.logger.warn("deallocate_image(%s): failed to look up image configuration" % (image_id,))
 
         return ret_val
 
@@ -219,11 +269,14 @@ class DVMPSService():
 
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
+            self.logger.info("revert_image(%s): reverting" % (image_id,))
             self.__poweroff_image(image_id)
             self.__destroy_image(image_id)
             self.__create_image(image_id)
             self.__poweron_image(image_id)
             ret_val = self.__image_status(image_id)
+        else:
+            self.logger.warn("revert_image(%s): failed to look up image configuration" % (image_id,))
 
         return ret_val
 
@@ -256,6 +309,8 @@ class DVMPSService():
             if allocated_image_conf.has_key('priority'):
                 priority = allocated_image_conf['priority']
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'priority': priority, 'comment': comment, 'vncport': self.__get_vnc_port(image_id) }
+        else:
+            self.logger.warn("__image_status(%s): failed to look up image configuration" % (image_id,))
 
         return ret_val
 
@@ -277,6 +332,8 @@ class DVMPSService():
         if allocated_image_conf is not None:
             self.__poweroff_image(image_id)
             ret_val = { 'result': True, 'image_id': image_id }
+        else:
+            self.logger.warn("poweroff_image(%s): failed to look up image configuration" % (image_id,))
 
         return ret_val
 
@@ -291,6 +348,8 @@ class DVMPSService():
         if allocated_image_conf is not None:
             self.__poweron_image(image_id)
             ret_val = self.__image_status(image_id)
+        else:
+            self.logger.warn("poweron_image(%s): failed to look up image configuration" % (image_id,))
 
         return ret_val
 
