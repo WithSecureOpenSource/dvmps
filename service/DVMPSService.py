@@ -1,9 +1,7 @@
 import time
 import subprocess
-import shutil
 import os
 import uuid
-import random
 import DVMPSDAO
 import libvirt
 import xml.dom.minidom as minidom
@@ -154,7 +152,6 @@ class DVMPSService():
     def __cleanup_expired_images(self):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
-        bim = DVMPSDAO.BaseImages(dbc)
         mip = DVMPSDAO.MacIpPairs(dbc)
         timenow = int(time.time())
 
@@ -162,7 +159,7 @@ class DVMPSService():
         for image_id in image_ids:
             image_record = ali.get_configuration(image_id)
             if image_record is not None and image_record.has_key('creation_time') and image_record.has_key('valid_for'):
-                time_before_expiry = image_record['creation_time'] + image_record['valid_for'] - int(time.time())
+                time_before_expiry = image_record['creation_time'] + image_record['valid_for'] - timenow
                 if time_before_expiry < 0:
                     self.logger.info("__cleanup_expired_images: found expired image %s" % (image_id,))
                     self.__poweroff_image(image_id)
@@ -216,8 +213,6 @@ class DVMPSService():
             self.logger.error("allocate_image: failed to allocate image (DAO)")
             mip.deallocate(mac_id)
             return { 'result': False, 'error': 'Failed to allocate image' }
-
-        ip_addr = mip.get_ip_for_mac_id(mac_id)
 
         if self.__create_image(image_id) == True:
             if self.__poweron_image(image_id) == True:
