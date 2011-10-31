@@ -4,6 +4,7 @@ import optparse
 from flup.server.fcgi import WSGIServer
 import DVMPSWSGI
 import logging
+import logging.handlers
 
 __appname__ = "dvmps-node"
 __usage__ = "%prog -f <socket_file>"
@@ -30,7 +31,12 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     if opt.logfile is not None:
-        logging.basicConfig(filename=opt.logfile, level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        root_logger = logging.getLogger()
+        rotating_handler = logging.handlers.RotatingFileHandler(opt.logfile, maxBytes=1024*1024*10, backupCount=10)
+        formatter = logging.Formatter('%(asctime)s %(levelname)s:%(name)s:%(message)s')
+        rotating_handler.setFormatter(formatter)
+        root_logger.addHandler(rotating_handler)
+        root_logger.setLevel(logging.DEBUG)
 
     dvmps_wsgi = DVMPSWSGI.DVMPSWSGI(database=opt.database)
 
