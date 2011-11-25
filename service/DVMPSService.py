@@ -25,6 +25,11 @@ class DVMPSService():
     def __base_xml_template_path(self, filename):
         return '/var/lib/libvirt/qemu/templates/%s' % filename
 
+    def __run_command(self, command_and_args):
+        proc = subprocess.Popen(command_and_args, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (sout,serr) = proc.communicate()
+        return (proc.returncode, sout, serr)
+
     def __get_vnc_port(self, image_id):
         port = None
         try:
@@ -67,9 +72,11 @@ class DVMPSService():
 
             if allocated_image_conf.has_key('mac_id'):
                 mac = mip.get_mac_for_mac_id(allocated_image_conf['mac_id'])
+                ipaddr = mip.get_ip_for_mac_id(allocated_image_conf['mac_id'])
 
-            if full_path_base_image_file is not None and full_path_xml_template_file is not None and mac is not None:
-                if subprocess.call(['qemu-img', 'create', '-b', full_path_base_image_file, '-f', 'qcow2', self.__cloned_disk_image_path(image_id)]) == 0:
+            if full_path_base_image_file is not None and full_path_xml_template_file is not None and mac is not None and ipaddr is not None:
+                (rc,out,err) = self.__run_command(['qemu-img', 'create', '-b', full_path_base_image_file, '-f', 'qcow2', self.__cloned_disk_image_path(image_id)])
+                if rc == 0:
                     f = open(full_path_xml_template_file, 'r')
                     xmlspec = f.read()
                     f.close()
@@ -80,10 +87,11 @@ class DVMPSService():
                     f.write(xmlspec)
                     f.close()
                     retval = True
-                    self.logger.info("__create_image(%s): image successfully created" % (image_id,))
+                    self.logger.info("__create_image(%s): image successfully created - mac: %s - ipaddr: %s" % (image_id,mac,ipaddr))
                 else:
-                    self.logger.error("__create_image(%s): qemu-img failed to create new overlay image" % (image_id,))
-
+                    self.logger.error("__create_image(%s): qemu-img failed to create new overlay image\nSTDOUT\n%s\nSTDERR\n%s" % (image_id,out,err))
+            else:
+                self.logger.error("__create_image(%s): failed to gather all necessary image configuration" % (image_id,))
         else:
             self.logger.warn("__create_image(%s): failed to look up image configuration" % (image_id,))
 
@@ -97,11 +105,12 @@ class DVMPSService():
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
             full_path_xml_def_file = self.__cloned_xml_definition_path(image_id)
-            if subprocess.call(['virsh', 'create', full_path_xml_def_file]) == 0:
+            (rc,out,err) = self.__run_command(['virsh', 'create', full_path_xml_def_file])
+            if rc == 0:
                 self.logger.info("__poweron_image(%s): image successfully launched" % (image_id,))
                 retval = True
             else:
-                self.logger.error("__poweron_image(%s): virsh failed with create command" % (image_id,))
+                self.logger.error("__poweron_image(%s): virsh failed with create command\nSTDOUT\n%s\nSTDERR\n%s" % (image_id,out,err))
         else:
             self.logger.warn("__poweron_image(%s): failed to look up image configuration" % (image_id,))
         return retval
@@ -113,11 +122,12 @@ class DVMPSService():
 
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
-            if subprocess.call(['virsh', 'destroy', image_id]) == 0:
+            (rc,out,err) = self.__run_command(['virsh', 'destroy', image_id])
+            if rc == 0:
                 self.logger.info("__poweroff_image(%s): image successfully destroyed" % (image_id,))
                 retval = True
             else:
-                self.logger.error("__poweroff_image(%s): virsh failed with destroy command" % (image_id,))
+                self.logger.error("__poweroff_image(%s): virsh failed with destroy command\nSTDOUT\n%s\nSTDERR\n%s" % (image_id,out,err))
         else:
             self.logger.warn("__poweroff_image(%s): failed to look up image configuration" % (image_id,))
         return retval
