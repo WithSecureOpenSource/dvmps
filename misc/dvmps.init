@@ -1,0 +1,81 @@
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:          dvmps
+# Required-Start:    $local_fs $network libvirtd nginx
+# Required-Stop:     $local_fs $network libvirtd nginx
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: starts DVMPS services
+# Description:       starts DVMPS services using start-stop-daemon
+### END INIT INFO
+
+NAME=dvmps
+DESC="Dynamic Virtual Machine Provisioning Service"
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+PYTHON=/usr/bin/python
+export PATH
+
+DVMPS_BIN_PATH=/opt/dvmps/bin
+DVMPS_SERVER=$DVMPS_BIN_PATH/DVMPSWSGIFlup.py
+DVMPS_DATABASE="dvmps"
+DVMPS_LOGFILE="/var/opt/dvmps/dvmps.log"
+DVMPS_RUN_PATH="/var/opt/dvmps/run"
+DVMPS_SOCKET="$DVMPS_RUN_PATH/fcgi-dvmps-1.socket"
+DVMPS_PIDFILE="$DVMPS_RUN_PATH/fcgi-dvmps-1.pid"
+
+test -x $PYTHON || exit 0
+test -f $DVMPS_SERVER || exit 0
+
+. /lib/lsb/init-functions
+
+prepare_system() {
+    echo 1 > /sys/kernel/mm/ksm/run
+    echo 1000 > /sys/kernel/mm/ksm/pages_to_scan
+
+    KSMD_PID=`pidof ksmd`
+    if [ -n "$KSMD_PID" ]; then renice -1 $KSMD_PID; fi
+}
+
+start_server() {
+    OPTS="-f $DVMPS_SOCKET -d $DVMPS_DATABASE -l $DVMPS_LOGFILE"
+    start-stop-daemon --start --quiet --pidfile $DVMPS_PIDFILE \
+        --make-pidfile --background \
+        --startas $PYTHON -- $DVMPS_SERVER $OPTS || true
+}
+
+stop_server() {
+    start-stop-daemon --stop --quiet --pidfile $DVMPS_PIDFILE \
+        && rm -f $DVMPS_PIDFILE || true
+}
+
+case "$1" in
+  start)
+    echo -n "Starting $DESC: "
+    prepare_system
+    start_server
+    echo "$NAME."
+    ;;
+  stop|force-stop)
+    echo -n "Stopping $DESC: "
+    stop_server
+    echo "$NAME."
+    ;;
+  restart|reload|force-reload)
+    echo -n "Restarting $DESC: "
+    stop_server
+    sleep 1
+    prepare_system
+    start_server
+    echo "$NAME."
+    ;;
+  status)
+    status_of_proc -p $DVMPS_PIDFILE "DVMPS_SERVER" dvmps || true
+    ;;
+  *)
+    echo "Usage: $NAME {start|stop|force-stop|restart|reload|force-reload|status}" >&2
+    exit 1
+    ;;
+esac
+
+exit 0
