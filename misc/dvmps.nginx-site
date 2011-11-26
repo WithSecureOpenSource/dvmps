@@ -13,5 +13,7 @@ server {
         location / {
                 fastcgi_pass            dvmps_fcgi;
                 include                 fastcgi_params;
+                fastcgi_read_timeout    180;
+                fastcgi_send_timeout    180;
         }
 }
