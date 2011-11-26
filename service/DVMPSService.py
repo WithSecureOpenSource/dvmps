@@ -32,24 +32,28 @@ class DVMPSService():
 
     def __get_vnc_port(self, image_id):
         port = None
+        connection = libvirt.openReadOnly(None)
+
         try:
-            connection = libvirt.openReadOnly(None)
-            if connection is not None:
-                domain = connection.lookupByName(image_id)
-                if domain is not None:
-                    xmlspec = domain.XMLDesc(0)
-                    dom = minidom.parseString(xmlspec)
-                    nodes = dom.getElementsByTagName('graphics')
-                    for node in nodes:
-                        port_candidate = node.getAttribute('port')
-                        if port_candidate is not None and port_candidate != '':
-                            port = str(port_candidate)
-                else:
-                    self.logger.error("__get_vnc_port(%s): no such domain" % (image_id,))
-            else:
-                self.logger.error("__get_vnc_port(%s): no libvirt connection" % (image_id,))
+            domain = connection.lookupByName(image_id)
         except:
-            self.logger.error("__get_vnc_port(%s) exception: %s" % (image_id, str(sys.exc_info()[1]))) 
+            self.logger.warn("__get_vnc_port(%s): no such domain, exception: %s" % (image_id, str(sys.exc_info()[1])))
+            return None
+
+        xmlspec = domain.XMLDesc(0)
+        nodes = []
+
+        try:
+            xmldom = minidom.parseString(xmlspec)
+            nodes = xmldom.getElementsByTagName('graphics')
+        except:
+            self.logger.error("__get_vnc_port(%s): failed to parse XML, exception: %s" % (image_id, str(sys.exc_info()[1])))
+            return None
+
+        for node in nodes:
+            port_candidate = node.getAttribute('port')
+            if port_candidate is not None and port_candidate != '':
+                port = str(port_candidate)
         return port
 
     def __create_image(self, image_id):
@@ -105,12 +109,19 @@ class DVMPSService():
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
             full_path_xml_def_file = self.__cloned_xml_definition_path(image_id)
-            (rc,out,err) = self.__run_command(['virsh', 'create', full_path_xml_def_file])
-            if rc == 0:
+
+            fh = open(full_path_xml_def_file, 'r')
+            xml_spec = fh.read()
+            fh.close()
+
+            connection = libvirt.open(None)
+            dom = None
+            try:
+                dom = connection.createXML(xml_spec, 0)
                 self.logger.info("__poweron_image(%s): image successfully launched" % (image_id,))
                 retval = True
-            else:
-                self.logger.error("__poweron_image(%s): virsh failed with create command\nSTDOUT\n%s\nSTDERR\n%s" % (image_id,out,err))
+            except:
+                self.logger.error("__poweron_image(%s): failed to launch image, exception: %s" % (image_id,str(sys.exc_info()[1])))
         else:
             self.logger.warn("__poweron_image(%s): failed to look up image configuration" % (image_id,))
         return retval
@@ -122,12 +133,20 @@ class DVMPSService():
 
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
-            (rc,out,err) = self.__run_command(['virsh', 'destroy', image_id])
-            if rc == 0:
-                self.logger.info("__poweroff_image(%s): image successfully destroyed" % (image_id,))
-                retval = True
-            else:
-                self.logger.error("__poweroff_image(%s): virsh failed with destroy command\nSTDOUT\n%s\nSTDERR\n%s" % (image_id,out,err))
+            connection = libvirt.open(None)
+            dom = None
+            try:
+                dom = connection.lookupByName(image_id)
+            except:
+                self.logger.warn("__poweroff_image(%s): image not found, exception: %s" % (image_id,str(sys.exc_info()[1])))
+
+            if dom is not None:
+                try:
+                    dom.destroy()
+                    self.logger.info("__poweroff_image(%s): image successfully destroyed" % (image_id,))
+                    retval = True
+                except:
+                    self.logger.error("__poweroff_image(%s): failed to destroy image, exception: %s" % (image_id,str(sys.exc_info()[1])))
         else:
             self.logger.warn("__poweroff_image(%s): failed to look up image configuration" % (image_id,))
         return retval
