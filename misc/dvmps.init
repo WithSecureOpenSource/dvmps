@@ -34,7 +34,10 @@ prepare_system() {
     echo 1000 > /sys/kernel/mm/ksm/pages_to_scan
 
     KSMD_PID=`pidof ksmd`
-    if [ -n "$KSMD_PID" ]; then renice -1 $KSMD_PID; fi
+    if [ -n "$KSMD_PID" ]
+    then
+        renice -1 $KSMD_PID > /dev/null
+    fi
 }
 
 start_server() {
