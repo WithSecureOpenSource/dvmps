@@ -23,7 +23,7 @@ class DVMPSWSGI:
         res = None
 
         if self.dvmps is None:
-            return [json.dumps(res)]
+            return [json.dumps({'result':False, error:'Internal error, DVMPS service not initialized'})]
 
         request_params = None
 
@@ -34,7 +34,7 @@ class DVMPSWSGI:
             try:
                 request_params = json.loads(data)
             except:
-                pass
+                return [json.dumps({'result':False, error:'Failed to decode request parameters'})]
         elif environ['REQUEST_METHOD'] == 'GET' or environ['REQUEST_METHOD'] == 'HEAD':
             request_type = self.REQUEST_GET
             keys_values = urlparse.parse_qsl(environ['QUERY_STRING'])
@@ -42,10 +42,10 @@ class DVMPSWSGI:
             for key,value in keys_values:
                 request_params[key] = value
         else:
-            return [json.dumps({'result':false, error:'Invalid request method'})]
+            return [json.dumps({'result':False, error:'Invalid request method'})]
 
-        if request_params is None:
-            return [json.dumps({'result':false, error:'Failed to decode request parameters'})]
+        if request_params is None or type(request_params).__name__ != 'dict':
+            request_params = {}
 
         if command == 'allocate' and request_type == self.REQUEST_POST:
             base_image = None
@@ -69,7 +69,7 @@ class DVMPSWSGI:
                     raise
                 self.sync_lock.release()
 
-        if command == 'deallocate' and request_type == self.REQUEST_POST:
+        elif command == 'deallocate' and request_type == self.REQUEST_POST:
             image_id = None
             if request_params.has_key('image_id'):
                 image_id = request_params['image_id']
@@ -82,7 +82,7 @@ class DVMPSWSGI:
                     raise
                 self.sync_lock.release()
 
-        if command == 'revert' and request_type == self.REQUEST_POST:
+        elif command == 'revert' and request_type == self.REQUEST_POST:
             image_id = None
             if request_params.has_key('image_id'):
                 image_id = request_params['image_id']
@@ -95,7 +95,7 @@ class DVMPSWSGI:
                     raise
                 self.sync_lock.release()
 
-        if command == 'poweroff' and request_type == self.REQUEST_POST:
+        elif command == 'poweroff' and request_type == self.REQUEST_POST:
             image_id = None
             if request_params.has_key('image_id'):
                 image_id = request_params['image_id']
@@ -108,7 +108,7 @@ class DVMPSWSGI:
                     raise
                 self.sync_lock.release()
 
-        if command == 'poweron' and request_type == self.REQUEST_POST:
+        elif command == 'poweron' and request_type == self.REQUEST_POST:
             image_id = None
             if request_params.has_key('image_id'):
                 image_id = request_params['image_id']
@@ -121,7 +121,7 @@ class DVMPSWSGI:
                     raise
                 self.sync_lock.release()
 
-        if command == 'status':
+        elif command == 'status':
             image_id = None
             if request_params.has_key('image_id'):
                 image_id = request_params['image_id']
@@ -134,7 +134,7 @@ class DVMPSWSGI:
                     raise
                 self.sync_lock.release()
 
-        if command == 'systemstatus':
+        elif command == 'systemstatus':
             self.sync_lock.acquire()
             try:
                 res = self.dvmps.status()
@@ -143,7 +143,7 @@ class DVMPSWSGI:
                 raise
             self.sync_lock.release()
 
-        if command == 'running_images':
+        elif command == 'running_images':
             self.sync_lock.acquire()
             try:
                 res = self.dvmps.running_images()
@@ -152,7 +152,7 @@ class DVMPSWSGI:
                 raise
             self.sync_lock.release()
 
-        if command == 'base_images':
+        elif command == 'base_images':
             self.sync_lock.acquire()
             try:
                 res = self.dvmps.base_images()
@@ -160,5 +160,8 @@ class DVMPSWSGI:
                 self.sync_lock.release()
                 raise
             self.sync_lock.release()
+
+        else:
+            res = {'result':False, 'error':'Unknown command or bad request method'}
 
         return [json.dumps(res)]
