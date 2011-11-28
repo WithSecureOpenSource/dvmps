@@ -88,6 +88,13 @@ def base_images(options):
     rep = json.loads(rep_str)
     return rep
 
+def show_image_addresses(options):
+    (scheme, host_add, path, query, fragment) = urlparse.urlsplit(options.serverurl)
+    images = running_images(options)
+    print "Image ID - IP Address - VNC Address"
+    for image in images["running_images"]:
+        print "%s - %s - %s:%s" % (image['image_id'], image["ip_addr"], host_add, image["vncport"])
+
 def usage():
     print "Usage: %s [<options>] <command> <arguments..>" % sys.argv[0]
     print " %s allocate <base_image>" % sys.argv[0]
@@ -99,6 +106,7 @@ def usage():
     print " %s systemstatus" % sys.argv[0]
     print " %s running_images" % sys.argv[0]
     print " %s base_images" % sys.argv[0]
+    print " %s image_addresses" % sys.argv[0]
     print ""
     print "Options:"
     print "--serverurl  <url>       Base URL for allocation server (e.g. http://dyn-node1.example.com) [mandatory]"
@@ -136,6 +144,9 @@ if __name__ == '__main__':
     elif command == 'base_images':
         ret = base_images(options)
         print json.dumps(ret, indent=4)
+        sys.exit(0)
+    elif command == 'image_addresses':
+        show_image_addresses(options)
         sys.exit(0)
 
     if arglen < 2:
