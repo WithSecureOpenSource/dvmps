@@ -121,6 +121,16 @@ class DVMPSWSGI:
                     raise
                 self.sync_lock.release()
 
+        elif command == 'maintenance' and request_type == self.REQUEST_POST:
+            message = ''
+            if request_params.has_key('message'):
+                message = request_params['message']
+            if request_params.has_key('maintenance') and type(request_params['maintenance']).__name__ == 'bool':
+                if request_params['maintenance'] == True:
+                    res = self.dvmps.set_maintenance_mode(True, message)
+                else:
+                    res = self.dvmps.set_maintenance_mode(False, '')
+
         elif command == 'status':
             image_id = None
             if request_params.has_key('image_id'):

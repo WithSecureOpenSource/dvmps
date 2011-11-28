@@ -95,6 +95,18 @@ def show_image_addresses(options):
     for image in images["running_images"]:
         print "%s - %s - %s:%s" % (image['image_id'], image["ip_addr"], host_add, image["vncport"])
 
+def maintenance(options, message):
+    if message == 'cancel':
+        data = { 'maintenance': False}
+    else:
+        data = { 'maintenance': True, 'message': message }
+    data_str = json.dumps(data)
+    url = __build_url(options, 'maintenance')
+    o = urllib2.urlopen(url, data_str)
+    rep_str = o.read()
+    rep = json.loads(rep_str)
+    return rep
+
 def usage():
     print "Usage: %s [<options>] <command> <arguments..>" % sys.argv[0]
     print " %s allocate <base_image>" % sys.argv[0]
@@ -107,6 +119,7 @@ def usage():
     print " %s running_images" % sys.argv[0]
     print " %s base_images" % sys.argv[0]
     print " %s image_addresses" % sys.argv[0]
+    print " %s maintenance <message|'cancel'>" % sys.argv[0]
     print ""
     print "Options:"
     print "--serverurl  <url>       Base URL for allocation server (e.g. http://dyn-node1.example.com) [mandatory]"
@@ -170,6 +183,9 @@ if __name__ == '__main__':
         print json.dumps(ret, indent=4)
     elif command == 'status':
         ret = status(options, args[1])
+        print json.dumps(ret, indent=4)
+    elif command == 'maintenance':
+        ret = maintenance(options, args[1])
         print json.dumps(ret, indent=4)
     else:
         usage()

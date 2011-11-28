@@ -12,6 +12,8 @@ class DVMPSService():
     def __init__(self, database=None):
         self.database = database
         self.logger = logging.getLogger('dvmps')
+        self.maintenance_mode = False
+        self.maintenance_message = ""
 
     def __cloned_disk_image_path(self, image_id):
         return '/var/lib/libvirt/images/active_dynamic/%s.img' % image_id
@@ -207,6 +209,10 @@ class DVMPSService():
 
         self.__cleanup_expired_images()
 
+        if self.maintenance_mode:
+            self.logger.info("allocate_image: declining image creation in maintenance mode")
+            return { 'result': False, 'error': 'Maintenance mode - not allocating images - %s' % self.maintenance_message }
+
         self.logger.info("allocate_image: request to allocate image of type %s" % (base_image,))
         base_image_conf = bim.get_base_image_configuration_by_name(base_image)
         if base_image_conf is None or not base_image_conf.has_key('id') or not base_image_conf.has_key('base_image_file') or not base_image_conf.has_key('configuration_template'):
@@ -384,6 +390,9 @@ class DVMPSService():
         self.__cleanup_expired_images()
         images = ali.get_images()
         ret_val = { 'result': True, 'allocated_images': len(images) }
+        if self.maintenance_mode == True:
+            ret_val['maintenance'] = True
+            ret_val['maintenance_message'] = self.maintenance_message
         return ret_val
 
     def running_images(self):
@@ -406,3 +415,8 @@ class DVMPSService():
 
         base_images = bim.get_base_images()
         return { 'result': True, 'base_images': base_images }
+
+    def set_maintenance_mode(self, maintenance=True, message=''):
+        self.maintenance_mode = maintenance
+        self.maintenance_message = message
+        return { 'result': True, 'maintenance': True, 'message': message }
