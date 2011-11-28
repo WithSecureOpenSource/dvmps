@@ -3,10 +3,15 @@ import json
 import urllib2
 from optparse import OptionParser
 import urlparse
+import urllib
 
-def __build_url(options, command):
+def __build_url(options, command, parameters = None):
     (scheme, netloc, path, query, fragment) = urlparse.urlsplit(options.serverurl)
-    url = urlparse.urlunsplit((scheme, netloc, command, '', ''))
+    if parameters is not None:
+        query_string = urllib.urlencode(parameters)
+    else:
+        query_string = ''
+    url = urlparse.urlunsplit((scheme, netloc, command, query_string, ''))
     return url
 
 def allocate(options, base_image, expires, priority, comment):
@@ -56,30 +61,29 @@ def poweron(options, image_id):
 
 def status(options, image_id):
     data = { 'image_id': image_id }
-    data_str = json.dumps(data)
-    url = __build_url(options, 'status')
-    o = urllib2.urlopen(url, data_str)
+    url = __build_url(options, 'status', data)
+    o = urllib2.urlopen(url)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
 def systemstatus(options):
     url = __build_url(options, 'systemstatus')
-    o = urllib2.urlopen(url, json.dumps(None))
+    o = urllib2.urlopen(url)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
 def running_images(options):
     url = __build_url(options, 'running_images')
-    o = urllib2.urlopen(url, json.dumps(None))
+    o = urllib2.urlopen(url)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
 def base_images(options):
     url = __build_url(options, 'base_images')
-    o = urllib2.urlopen(url, json.dumps(None))
+    o = urllib2.urlopen(url)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
