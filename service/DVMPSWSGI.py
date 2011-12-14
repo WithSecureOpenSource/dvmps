@@ -23,7 +23,7 @@ class DVMPSWSGI:
         res = None
 
         if self.dvmps is None:
-            return [json.dumps({'result':False, error:'Internal error, DVMPS service not initialized'})]
+            return [json.dumps({'result':False, 'error':'Internal error, DVMPS service not initialized'})]
 
         request_params = None
 
@@ -34,7 +34,7 @@ class DVMPSWSGI:
             try:
                 request_params = json.loads(data)
             except:
-                return [json.dumps({'result':False, error:'Failed to decode request parameters'})]
+                return [json.dumps({'result':False, 'error':'Failed to decode request parameters'})]
         elif environ['REQUEST_METHOD'] == 'GET' or environ['REQUEST_METHOD'] == 'HEAD':
             request_type = self.REQUEST_GET
             keys_values = urlparse.parse_qsl(environ['QUERY_STRING'])
@@ -42,7 +42,7 @@ class DVMPSWSGI:
             for key,value in keys_values:
                 request_params[key] = value
         else:
-            return [json.dumps({'result':False, error:'Invalid request method'})]
+            return [json.dumps({'result':False, 'error':'Invalid request method'})]
 
         if request_params is None or type(request_params).__name__ != 'dict':
             request_params = {}
