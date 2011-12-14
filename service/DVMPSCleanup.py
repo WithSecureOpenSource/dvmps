@@ -2,9 +2,32 @@ import libvirt
 import uuid
 import DVMPSDAO
 import os
+import stat
+import time
 
 dbc = DVMPSDAO.DatabaseConnection(database='dvmps')
 ali = DVMPSDAO.AllocatedImages(dbc) 
+
+def cleanup_logs():
+    logdir = '/var/log/libvirt/qemu'
+    seconds_to_keep = 60*60*24*3
+
+    now = time.time()
+
+    logfiles = []
+    try:
+        logfiles = os.listdir(logdir)
+    except:
+        pass
+
+    for entry in logfiles:
+        filename = os.path.join(logdir, entry)
+        try:
+            st = os.stat(filename)
+            if stat.S_ISREG(st.st_mode) and now - st.st_ctime > seconds_to_keep:
+                os.unlink(filename)
+        except:
+            pass
 
 def cleanup_libvirt():
     connection = libvirt.open(None)
@@ -78,6 +101,7 @@ def cleanup_monitors():
             pass
 
 if __name__ == "__main__":
+    cleanup_logs()
     cleanup_libvirt()
     cleanup_images()
     cleanup_xmls()
