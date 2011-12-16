@@ -171,6 +171,9 @@ class DVMPSWSGI:
                 raise
             self.sync_lock.release()
 
+        elif command == 'get_node_images':
+            res = self.dvmps.get_node_images()
+
         else:
             res = {'result':False, 'error':'Unknown command or bad request method'}
 

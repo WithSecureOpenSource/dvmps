@@ -420,3 +420,31 @@ class DVMPSService():
         self.maintenance_mode = maintenance
         self.maintenance_message = message
         return { 'result': True, 'maintenance': True, 'message': message }
+
+    def get_node_images(self):
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        bim = DVMPSDAO.BaseImages(dbc)
+        ali = DVMPSDAO.AllocatedImages(dbc)
+
+        base_images = bim.get_base_images()
+        base_images_id_name_map = {}
+        image_counts = {}
+
+        for base_image in base_images:
+            base_images_id_name_map[base_image['id']] = base_image['base_image_name']
+            image_counts[base_image['base_image_name']] = 0
+        base_image_names = image_counts.keys()
+
+        running_images = ali.get_images()
+        for image in running_images:
+            image_info = ali.get_configuration(image)
+            if image_info is not None and image_info.has_key('base_image_id'):
+                if base_images_id_name_map.has_key(image_info['base_image_id']):
+                    base_image_name = base_images_id_name_map[image_info['base_image_id']]
+                    image_counts[base_image_name] = image_counts[base_image_name] + 1
+
+        result = []
+        for name in base_image_names:
+            result.append({'base_image_name':name, 'running_instances': image_counts[name]})
+
+        return { 'result': True, 'images': result }
