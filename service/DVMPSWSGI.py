@@ -174,6 +174,13 @@ class DVMPSWSGI:
         elif command == 'get_node_images':
             res = self.dvmps.get_node_images()
 
+        elif command == 'get_node_placement_data':
+            res = self.dvmps.get_node_placement_data()
+
+        elif command == 'set_node_placement_data' and request_type == self.REQUEST_POST:
+            if request_params.has_key('node_placement_data'):
+                res = self.dvmps.set_node_placement_data(request_params['node_placement_data'])
+
         else:
             res = {'result':False, 'error':'Unknown command or bad request method'}
 

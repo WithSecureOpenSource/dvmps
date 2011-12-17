@@ -14,6 +14,7 @@ class DVMPSService():
         self.logger = logging.getLogger('dvmps')
         self.maintenance_mode = False
         self.maintenance_message = ""
+        self.node_placement_data = None
 
     def __cloned_disk_image_path(self, image_id):
         return '/var/lib/libvirt/images/active_dynamic/%s.img' % image_id
@@ -448,3 +449,10 @@ class DVMPSService():
             result.append({'base_image_name':name, 'running_instances': image_counts[name]})
 
         return { 'result': True, 'images': result }
+
+    def get_node_placement_data(self):
+        return { 'result': True, 'placement_data': self.node_placement_data }
+
+    def set_node_placement_data(self, node_placement_data):
+        self.node_placement_data = node_placement_data
+        return { 'result': True }
