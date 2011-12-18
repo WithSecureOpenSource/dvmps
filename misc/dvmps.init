@@ -18,11 +18,15 @@ export PATH
 
 DVMPS_BIN_PATH=/opt/dvmps/bin
 DVMPS_SERVER=$DVMPS_BIN_PATH/DVMPSWSGIFlup.py
-DVMPS_DATABASE="dvmps"
-DVMPS_LOGFILE="/var/opt/dvmps/dvmps.log"
-DVMPS_RUN_PATH="/var/opt/dvmps/run"
-DVMPS_SOCKET="$DVMPS_RUN_PATH/fcgi-dvmps-1.socket"
-DVMPS_PIDFILE="$DVMPS_RUN_PATH/fcgi-dvmps-1.pid"
+DVMPS_DATABASE=dvmps
+DVMPS_LOGFILE=/var/opt/dvmps/dvmps.log
+DVMPS_RUN_PATH=/var/opt/dvmps/run
+DVMPS_SOCKET=$DVMPS_RUN_PATH/fcgi-dvmps-1.socket
+DVMPS_PIDFILE=$DVMPS_RUN_PATH/fcgi-dvmps-1.pid
+
+DVMPS_PLACEMENT_AGENT=$DVMPS_BIN_PATH/DVMPSPlacementAgent.py
+DVMPS_PLACEMENT_AGENT_LOGFILE=/var/opt/dvmps/dvmps-pa.log
+DVMPS_PLACEMENT_AGENT_PIDFILE=$DVMPS_RUN_PATH/dvmps-pa.pid
 
 test -x $PYTHON || exit 0
 test -f $DVMPS_SERVER || exit 0
@@ -42,12 +46,18 @@ prepare_system() {
 
 start_server() {
     OPTS="-f $DVMPS_SOCKET -d $DVMPS_DATABASE -l $DVMPS_LOGFILE"
+    PA_OPTS="-l $DVMPS_PLACEMENT_AGENT_LOGFILE"
     start-stop-daemon --start --quiet --pidfile $DVMPS_PIDFILE \
         --make-pidfile --background \
         --startas $PYTHON -- $DVMPS_SERVER $OPTS || true
+    start-stop-daemon --start --quiet --pidfile $DVMPS_PLACEMENT_AGENT_PIDFILE \
+        --make-pidfile --background \
+        --startas $PYTHON -- $DVMPS_PLACEMENT_AGENT $PA_OPTS || true
 }
 
 stop_server() {
+    start-stop-daemon --stop --quiet --pidfile $DVMPS_PLACEMENT_AGENT_PIDFILE \
+        && rm -f $DVMPS_PLACEMENT_AGENT_PIDFILE || true
     start-stop-daemon --stop --quiet --pidfile $DVMPS_PIDFILE \
         && rm -f $DVMPS_PIDFILE || true
 }
@@ -74,6 +84,7 @@ case "$1" in
     ;;
   status)
     status_of_proc -p $DVMPS_PIDFILE "DVMPS_SERVER" dvmps || true
+    status_of_proc -p $DVMPS_PLACEMENT_AGENT_PIDFILE "DVMPS_PLACEMENT_AGENT" dvmps-pa || true
     ;;
   *)
     echo "Usage: $NAME {start|stop|force-stop|restart|reload|force-reload|status}" >&2
