@@ -184,4 +184,10 @@ class DVMPSWSGI:
         else:
             res = {'result':False, 'error':'Unknown command or bad request method'}
 
-        return [json.dumps(res)]
+        indent = None
+        if request_params.has_key('indent'):
+            try:
+                indent = int(request_params['indent'])
+            except:
+                pass
+        return [json.dumps(res, indent=indent)]
