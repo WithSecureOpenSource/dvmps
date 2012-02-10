@@ -7,6 +7,7 @@ import libvirt
 import xml.dom.minidom as minidom
 import logging
 import sys
+import random
 
 class DVMPSService():
     def __init__(self, database=None):
@@ -90,6 +91,7 @@ class DVMPSService():
                     xmlspec = xmlspec.replace('$(VM_ID)', image_id)
                     xmlspec = xmlspec.replace('$(IMAGE_FILE)', self.__cloned_disk_image_path(image_id))
                     xmlspec = xmlspec.replace('$(MAC_ADDRESS)', mac)
+                    xmlspec = xmlspec.replace('$(CPU)', str(random.randint(0,23)))
                     f = open(self.__cloned_xml_definition_path(image_id), 'w')
                     f.write(xmlspec)
                     f.close()
@@ -104,6 +106,24 @@ class DVMPSService():
 
         return retval
 
+    def __poweron_image_try(self, image_id, xml_spec, track=3):
+        connection = libvirt.open(None)
+        dom = None
+        try:
+            dom = connection.createXML(xml_spec, 0)
+        except:
+            self.logger.error("__poweron_image(%s): failed to launch image, exception: %s" % (image_id,str(sys.exc_info()[1])))
+            return False
+        if track > 0:
+            time.sleep(track)
+        try:
+            dom = connection.lookupByName(image_id)
+        except:
+            self.logger.error("__poweron_image(%s): despite successfully reported launch, domain is not found, exception: %s" % (image_id,str(sys.exc_info()[1])))
+            return False
+        self.logger.info("__poweron_image(%s): image successfully launched" % (image_id,))
+        return True
+
     def __poweron_image(self, image_id):
         retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
@@ -117,14 +137,12 @@ class DVMPSService():
             xml_spec = fh.read()
             fh.close()
 
-            connection = libvirt.open(None)
-            dom = None
-            try:
-                dom = connection.createXML(xml_spec, 0)
-                self.logger.info("__poweron_image(%s): image successfully launched" % (image_id,))
+            dom = self.__poweron_image_try(image_id, xml_spec, track=3)
+            if dom is None:
+                self.logger.warn("__poweron_image(%s): failed once, retrying" % (image_id,))
+                dom = self.__poweron_image_try(image_id, xml_spec, track=3)
+            if dom is not None:
                 retval = True
-            except:
-                self.logger.error("__poweron_image(%s): failed to launch image, exception: %s" % (image_id,str(sys.exc_info()[1])))
         else:
             self.logger.warn("__poweron_image(%s): failed to look up image configuration" % (image_id,))
         return retval
