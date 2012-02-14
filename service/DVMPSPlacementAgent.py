@@ -69,6 +69,14 @@ def send_local_data(broadcast_port):
     image_scores = []
     total_images = 0
 
+    load_penalty = 0
+    f_load = open('/proc/loadavg', 'r')
+    load_string = f_load.read()
+    f_load.close()
+    load_points = load_string.split('.')
+    if len(load_points) > 1:
+        load_penalty = int(load_points[0])
+
     for image in data['images']:
         if type(image).__name__ != 'dict' or not image.has_key('running_instances') or type(image['running_instances']).__name__ != 'int' or \
            not image.has_key('base_image_name') or (type(image['base_image_name']).__name__ != 'str' and type(image['base_image_name']).__name__ != 'unicode'):
@@ -80,7 +88,7 @@ def send_local_data(broadcast_port):
         total_images = total_images + image['running_instances']
 
     for image_name in image_names:
-        image_scores.append({'base_image_name':image_name, 'score': 2 * images[image_name] - total_images})
+        image_scores.append({'base_image_name':image_name, 'score': 2 * images[image_name] - total_images - 2 * load_penalty})
 
     out_data = {'type':'dvmps_node_update_v2','image_scores':image_scores}
     try:
