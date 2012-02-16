@@ -1,5 +1,4 @@
 import DVMPSService
-import threading
 import json
 import os.path
 import urlparse
@@ -10,7 +9,6 @@ class DVMPSWSGI:
 
     def __init__(self, database=None):
         self.dvmps = DVMPSService.DVMPSService(database=database)
-        self.sync_lock = threading.Lock()
 
     def dvmps_app(self, environ, start_response):
         command = os.path.basename(environ['SCRIPT_NAME'])
@@ -24,6 +22,8 @@ class DVMPSWSGI:
 
         if self.dvmps is None:
             return [json.dumps({'result':False, 'error':'Internal error, DVMPS service not initialized'})]
+
+        self.dvmps.cleanup_expired_images()
 
         request_params = None
 
@@ -61,65 +61,35 @@ class DVMPSWSGI:
             if request_params.has_key('priority'):
                 priority = request_params['priority']
             if base_image is not None and expires is not None:
-                self.sync_lock.acquire()
-                try:
-                    res = self.dvmps.allocate_image(base_image, expires, priority, comment)
-                except:
-                    self.sync_lock.release()
-                    raise
-                self.sync_lock.release()
+                res = self.dvmps.allocate_image(base_image, expires, priority, comment)
 
         elif command == 'deallocate' and request_type == self.REQUEST_POST:
             image_id = None
             if request_params.has_key('image_id'):
                 image_id = request_params['image_id']
             if image_id is not None:
-                self.sync_lock.acquire()
-                try:
-                    res = self.dvmps.deallocate_image(image_id)
-                except:
-                    self.sync_lock.release()
-                    raise
-                self.sync_lock.release()
+                res = self.dvmps.deallocate_image(image_id)
 
         elif command == 'revert' and request_type == self.REQUEST_POST:
             image_id = None
             if request_params.has_key('image_id'):
                 image_id = request_params['image_id']
             if image_id is not None:
-                self.sync_lock.acquire()
-                try:
-                    res = self.dvmps.revert_image(image_id)
-                except:
-                    self.sync_lock.release()
-                    raise
-                self.sync_lock.release()
+                res = self.dvmps.revert_image(image_id)
 
         elif command == 'poweroff' and request_type == self.REQUEST_POST:
             image_id = None
             if request_params.has_key('image_id'):
                 image_id = request_params['image_id']
             if image_id is not None:
-                self.sync_lock.acquire()
-                try:
-                    res = self.dvmps.poweroff_image(image_id)
-                except:
-                    self.sync_lock.release()
-                    raise
-                self.sync_lock.release()
+                res = self.dvmps.poweroff_image(image_id)
 
         elif command == 'poweron' and request_type == self.REQUEST_POST:
             image_id = None
             if request_params.has_key('image_id'):
                 image_id = request_params['image_id']
             if image_id is not None:
-                self.sync_lock.acquire()
-                try:
-                    res = self.dvmps.poweron_image(image_id)
-                except:
-                    self.sync_lock.release()
-                    raise
-                self.sync_lock.release()
+                res = self.dvmps.poweron_image(image_id)
 
         elif command == 'maintenance' and request_type == self.REQUEST_POST:
             message = ''
@@ -136,40 +106,16 @@ class DVMPSWSGI:
             if request_params.has_key('image_id'):
                 image_id = request_params['image_id']
             if image_id is not None:
-                self.sync_lock.acquire()
-                try:
-                    res = self.dvmps.image_status(image_id)
-                except:
-                    self.sync_lock.release()
-                    raise
-                self.sync_lock.release()
+                res = self.dvmps.image_status(image_id)
 
         elif command == 'systemstatus':
-            self.sync_lock.acquire()
-            try:
-                res = self.dvmps.status()
-            except:
-                self.sync_lock.release()
-                raise
-            self.sync_lock.release()
+            res = self.dvmps.status()
 
         elif command == 'running_images':
-            self.sync_lock.acquire()
-            try:
-                res = self.dvmps.running_images()
-            except:
-                self.sync_lock.release()
-                raise
-            self.sync_lock.release()
+            res = self.dvmps.running_images()
 
         elif command == 'base_images':
-            self.sync_lock.acquire()
-            try:
-                res = self.dvmps.base_images()
-            except:
-                self.sync_lock.release()
-                raise
-            self.sync_lock.release()
+            res = self.dvmps.base_images()
 
         elif command == 'get_node_images':
             res = self.dvmps.get_node_images()

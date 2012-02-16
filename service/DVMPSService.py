@@ -8,6 +8,7 @@ import xml.dom.minidom as minidom
 import logging
 import sys
 import random
+import threading
 
 class DVMPSService():
     def __init__(self, database=None):
@@ -16,6 +17,7 @@ class DVMPSService():
         self.maintenance_mode = False
         self.maintenance_message = ""
         self.node_placement_data = None
+        self.sync_lock = threading.Lock()
 
     def __cloned_disk_image_path(self, image_id):
         return '/var/lib/libvirt/images/active_dynamic/%s.img' % image_id
@@ -41,10 +43,12 @@ class DVMPSService():
         try:
             domain = connection.lookupByName(image_id)
         except:
+            connection.close()
             self.logger.warn("__get_vnc_port(%s): no such domain, exception: %s" % (image_id, str(sys.exc_info()[1])))
             return None
 
         xmlspec = domain.XMLDesc(0)
+        connection.close()
         nodes = []
 
         try:
@@ -113,6 +117,7 @@ class DVMPSService():
             dom = connection.createXML(xml_spec, 0)
         except:
             self.logger.error("__poweron_image(%s): failed to launch image, exception: %s" % (image_id,str(sys.exc_info()[1])))
+            connection.close()
             return False
         if track > 0:
             time.sleep(track)
@@ -120,8 +125,10 @@ class DVMPSService():
             dom = connection.lookupByName(image_id)
         except:
             self.logger.error("__poweron_image(%s): despite successfully reported launch, domain is not found, exception: %s" % (image_id,str(sys.exc_info()[1])))
+            connection.close()
             return False
         self.logger.info("__poweron_image(%s): image successfully launched" % (image_id,))
+        connection.close()
         return True
 
     def __poweron_image(self, image_id):
@@ -168,6 +175,7 @@ class DVMPSService():
                     retval = True
                 except:
                     self.logger.error("__poweroff_image(%s): failed to destroy image, exception: %s" % (image_id,str(sys.exc_info()[1])))
+            connection.close()
         else:
             self.logger.warn("__poweroff_image(%s): failed to look up image configuration" % (image_id,))
         return retval
@@ -199,26 +207,37 @@ class DVMPSService():
         else:
             self.logger.warn("__destroy_image(%s): failed to look up image configuration" % (image_id,))
 
-    def __cleanup_expired_images(self):
-        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
-        ali = DVMPSDAO.AllocatedImages(dbc)
-        mip = DVMPSDAO.MacIpPairs(dbc)
-        timenow = int(time.time())
+    def cleanup_expired_images(self):
+        self.sync_lock.acquire()
+        try:
+            dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+            ali = DVMPSDAO.AllocatedImages(dbc)
+            mip = DVMPSDAO.MacIpPairs(dbc)
+            timenow = int(time.time())
 
-        image_ids = ali.get_images()
-        for image_id in image_ids:
-            image_record = ali.get_configuration(image_id)
-            if image_record is not None and image_record.has_key('creation_time') and image_record.has_key('valid_for'):
-                time_before_expiry = image_record['creation_time'] + image_record['valid_for'] - timenow
-                if time_before_expiry < 0:
-                    self.logger.info("__cleanup_expired_images: found expired image %s" % (image_id,))
-                    self.__poweroff_image(image_id)
-                    self.__destroy_image(image_id)
-                    if image_record.has_key('mac_id'):
-                        mip.deallocate(image_record['mac_id'])
-                    ali.deallocate(image_id)
+            image_ids = ali.get_images()
+            for image_id in image_ids:
+                image_record = ali.get_configuration(image_id)
+                if image_record is not None and image_record.has_key('creation_time') and image_record.has_key('valid_for'):
+                    time_before_expiry = image_record['creation_time'] + image_record['valid_for'] - timenow
+                    if time_before_expiry < 0:
+                        self.logger.info("cleanup_expired_images: found expired image %s" % (image_id,))
+                        self.__poweroff_image(image_id)
+                        self.__destroy_image(image_id)
+                        ali.deallocate(image_id)
+                        if image_record.has_key('mac_id'):
+                            mip.deallocate(image_record['mac_id'])
+        except:
+            self.sync_lock.release()
+            raise
+
+        self.sync_lock.release()
 
     def allocate_image(self, base_image, valid_for, priority, comment):
+        if self.maintenance_mode:
+            self.logger.info("allocate_image: declining image creation in maintenance mode")
+            return { 'result': False, 'error': 'Maintenance mode - not allocating images - %s' % self.maintenance_message }
+
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
         bim = DVMPSDAO.BaseImages(dbc)
@@ -226,38 +245,39 @@ class DVMPSService():
 
         image_id = str(uuid.uuid4())
 
-        self.__cleanup_expired_images()
-
-        if self.maintenance_mode:
-            self.logger.info("allocate_image: declining image creation in maintenance mode")
-            return { 'result': False, 'error': 'Maintenance mode - not allocating images - %s' % self.maintenance_message }
-
         self.logger.info("allocate_image: request to allocate image of type %s" % (base_image,))
         base_image_conf = bim.get_base_image_configuration_by_name(base_image)
         if base_image_conf is None or not base_image_conf.has_key('id') or not base_image_conf.has_key('base_image_file') or not base_image_conf.has_key('configuration_template'):
             self.logger.warn("allocate_image: no such base_image configured %s" % (base_image,))
             return { 'result': False, 'error': 'No such base image configured' }
 
-        while True:
-            mac_id = mip.allocate(valid_for=valid_for)
-            if mac_id is not None:
-                break
-            else:
-                lower_priority_images = ali.get_images_below_priority(priority)
-                if len(lower_priority_images) == 0:
+        self.sync_lock.acquire()
+        try:
+            while True:
+                mac_id = mip.allocate(valid_for=valid_for)
+                if mac_id is not None:
                     break
                 else:
-                    low_image_id = lower_priority_images[0]
-                    low_image_conf = ali.get_configuration(low_image_id)
-                    if low_image_conf is not None:
-                        self.logger.info("allocate_image: destroying lower priority image %s" % (low_image_id,))
-                        self.__poweroff_image(low_image_id)
-                        self.__destroy_image(low_image_id)
-                        if low_image_conf.has_key('mac_id'):
-                            mip.deallocate(low_image_conf['mac_id'])
-                        ali.deallocate(low_image_id)
-                    else:
+                    lower_priority_images = ali.get_images_below_priority(priority)
+                    if len(lower_priority_images) == 0:
                         break
+                    else:
+                        low_image_id = lower_priority_images[0]
+                        low_image_conf = ali.get_configuration(low_image_id)
+                        if low_image_conf is not None:
+                            self.logger.info("allocate_image: destroying lower priority image %s" % (low_image_id,))
+                            self.__poweroff_image(low_image_id)
+                            self.__destroy_image(low_image_id)
+                            ali.deallocate(low_image_id)
+                            if low_image_conf.has_key('mac_id'):
+                                mip.deallocate(low_image_conf['mac_id'])
+                        else:
+                            break
+        except:
+            self.sync_lock.release()
+            raise
+
+        self.sync_lock.release()
 
         if mac_id is None:
             self.logger.warn("allocate_image: no free MAC/IP pairs")
@@ -265,7 +285,9 @@ class DVMPSService():
 
         if ali.allocate(image_id, mac_id, base_image_conf['id'], valid_for=valid_for, comment=comment, priority=priority) == False:
             self.logger.error("allocate_image: failed to allocate image (DAO)")
+            self.sync_lock.acquire()
             mip.deallocate(mac_id)
+            self.sync_lock.release()
             return { 'result': False, 'error': 'Failed to allocate image' }
 
         if self.__create_image(image_id) == True:
@@ -275,12 +297,16 @@ class DVMPSService():
                 self.logger.error("allocate_image: failed to launch virtual machine")
                 self.__destroy_image(image_id)
                 ali.deallocate(image_id)
+                self.sync_lock.acquire()
                 mip.deallocate(mac_id)
+                self.sync_lock.release()
                 return { 'result': False, 'error': 'Failed to launch virtual machine' }
         else:
             self.logger.error("allocate_image: failed to setup virtual machine")
             ali.deallocate(image_id)
+            self.sync_lock.acquire()
             mip.deallocate(mac_id)
+            self.sync_lock.release()
             return { 'result': False, 'error': 'Failed to create backing image' }
 
         self.logger.info("allocate_image: successfully allocated image %s of type %s" % (image_id, base_image))
@@ -292,7 +318,6 @@ class DVMPSService():
         ali = DVMPSDAO.AllocatedImages(dbc)
         mip = DVMPSDAO.MacIpPairs(dbc)
 
-        self.__cleanup_expired_images()
         ret_val = { 'result': False, 'error': 'No such image' }
 
         allocated_image_conf = ali.get_configuration(image_id)
@@ -300,9 +325,11 @@ class DVMPSService():
             self.logger.info("deallocate_image(%s): deallocating" % (image_id,))
             self.__poweroff_image(image_id)
             self.__destroy_image(image_id)
-            if allocated_image_conf.has_key('mac_id'):
-                mip.deallocate(allocated_image_conf['mac_id'])
             ali.deallocate(image_id)
+            if allocated_image_conf.has_key('mac_id'):
+                self.sync_lock.acquire()
+                mip.deallocate(allocated_image_conf['mac_id'])
+                self.sync_lock.release()
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
         else:
             self.logger.warn("deallocate_image(%s): failed to look up image configuration" % (image_id,))
@@ -313,7 +340,6 @@ class DVMPSService():
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
-        self.__cleanup_expired_images()
         ret_val = { 'result': False, 'error': 'No such image' }
 
         allocated_image_conf = ali.get_configuration(image_id)
@@ -364,7 +390,6 @@ class DVMPSService():
         return ret_val
 
     def image_status(self, image_id):
-        self.__cleanup_expired_images()
         ret_val = self.__image_status(image_id)
         if ret_val is None:
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
@@ -374,7 +399,6 @@ class DVMPSService():
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
-        self.__cleanup_expired_images()
         ret_val = { 'result': False, 'error': 'no such image' }
 
         allocated_image_conf = ali.get_configuration(image_id)
@@ -390,7 +414,6 @@ class DVMPSService():
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
-        self.__cleanup_expired_images()
         ret_val = { 'result': False, 'error': 'no such image' }
 
         allocated_image_conf = ali.get_configuration(image_id)
@@ -406,7 +429,6 @@ class DVMPSService():
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
-        self.__cleanup_expired_images()
         images = ali.get_images()
         ret_val = { 'result': True, 'allocated_images': len(images) }
         if self.maintenance_mode == True:
@@ -418,7 +440,6 @@ class DVMPSService():
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
-        self.__cleanup_expired_images()
         images = ali.get_images()
         image_statuses = []
         for image in images:
