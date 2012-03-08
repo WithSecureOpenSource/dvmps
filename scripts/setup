@@ -1,0 +1,87 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+#
+
+BASE_DIR=.
+
+echo
+echo "Dynamic Virtual Machine Provisioning Service Node Setup"
+echo "======================================================="
+echo
+
+if [ `whoami` != 'root' ]; then
+    echo "This script must be executed as 'root'."
+    echo "Setup aborted."
+    exit 1
+fi
+
+echo -n "Set up APT? [y/N] "
+read CONFIRM_APT
+if [ "$CONFIRM_APT" = "Y" -o "$CONFIRM_APT" = "y" ]; then
+    $BASE_DIR/setup_apt
+fi
+
+echo "Update packages..."
+apt-get -f install
+
+$BASE_DIR/check_kvm
+
+if [ $? -ne 0 ]; then
+    echo -n "Continue with setup? [y/N] "
+    read CONFIRM_KVM
+    if [ ! "$CONFIRM_KVM" = "Y" -a ! "$CONFIRM_KVM" = "y" ]; then
+        echo "Setup aborted."
+        exit 1
+    fi
+fi
+
+echo -n "Is VLAN required? [y/N] "
+read CONFIRM_VLAN
+if [ "$CONFIRM_VLAN" = "Y" -o "$CONFIRM_VLAN" = "y" ]; then
+    apt-get -y install vlan
+fi
+
+echo -n "Set up network? [y/N] "
+read CONFIRM_NETWORK
+if [ "$CONFIRM_NETWORK" = "Y" -o "$CONFIRM_NETWORK" = "y" ]; then
+    $BASE_DIR/setup_network
+fi
+
+echo -n "Set up libvirt? [y/N] "
+read CONFIRM_LIBVIRT
+if [ "$CONFIRM_LIBVIRT" = "Y" -o "$CONFIRM_LIBVIRT" = "y" ]; then
+    $BASE_DIR/setup_libvirt
+fi
+
+echo -n "Set up database? [y/N] "
+read CONFIRM_DATABASE
+if [ "$CONFIRM_DATABASE" = "Y" -o "$CONFIRM_DATABASE" = "y" ]; then
+    $BASE_DIR/setup_database
+fi
+
+echo -n "Set up web server? [y/N] "
+read CONFIRM_HTTPD
+if [ "$CONFIRM_HTTPD" = "Y" -o "$CONFIRM_HTTPD" = "y" ]; then
+    $BASE_DIR/setup_httpd
+fi
+
+echo -n "Set up DHCP server? [y/N] "
+read CONFIRM_DHCPD
+if [ "$CONFIRM_DHCPD" = "Y" -o "$CONFIRM_DHCPD" = "y" ]; then
+    $BASE_DIR/setup_dhcpd
+fi
+
+echo -n "Set up cron? [y/N] "
+read CONFIRM_CRON
+if [ "$CONFIRM_CRON" = "Y" -o "$CONFIRM_CRON" = "y" ]; then
+    $BASE_DIR/setup_cron
+fi
+
+echo -n "Set up Munin node? [y/N] "
+read CONFIRM_MUNIN
+if [ "$CONFIRM_MUNIN" = "Y" -o "$CONFIRM_MUNIN" = "y" ]; then
+    $BASE_DIR/setup_munin
+fi
+
+echo "Setup done."

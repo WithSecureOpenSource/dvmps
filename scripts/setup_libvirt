@@ -1,0 +1,91 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+#
+
+DEFAULT_BASEDIR=/var/lib/libvirt
+LIBVIRT_DIRS="images/active_dynamic images/base images/ISO qemu/active_dynamic qemu/dump qemu/static qemu/templates"
+MTAB=/etc/mtab
+FSTAB=/etc/fstab
+FSTAB_BAK=/etc/fstab.bak
+
+TEMP_FSTAB=/tmp/fstab.tmp.$$
+
+trap "rm -f $TEMP_FSTAB" EXIT
+
+echo -n "Please specify the libvirt base directory [$DEFAULT_BASEDIR]: "
+read BASEDIR
+
+if [ -z "$BASEDIR" ]; then
+    BASEDIR=$DEFAULT_BASEDIR
+fi
+
+echo -n "$BASEDIR? [Y/n] "
+read CONFIRM
+
+TMPFS_MNT=$BASEDIR/images/active_dynamic
+
+# create required directories
+
+if [ -z "$CONFIRM" -o "$CONFIRM" = "Y" -o "$CONFIRM" = "y" ]; then
+    for d in $LIBVIRT_DIRS; do
+        DIR=$BASEDIR/$d
+        echo "Creating directory $DIR..."
+        mkdir -p $DIR
+    done
+else
+    echo "Aborted."
+    exit 1
+fi
+
+# setup tmpfs
+
+TMPFS=`grep -n tmpfs $FSTAB | grep ramfs | grep $BASEDIR`
+if [ $? -eq 0 ]; then 
+    echo $TMPFS
+    echo -n "tmpfs are already configured, skip? [Y/n] "
+    read CONFIRM
+    if [ -z "$CONFIRM" -o "$CONFIRM" = "Y" -o "$CONFIRM" = "y" ]; then
+        echo "tmpfs setup skipped"
+        exit 0
+    fi
+fi
+
+echo -n "Enter tmpfs size: "
+read SIZE
+
+echo "Generating file $FSTAB..."
+
+TMPFS_N=`echo $TMPFS | cut -f1 -d:`
+sed -e ${TMPFS_N}d $FSTAB > $TEMP_FSTAB
+echo "tmpfs $TMPFS_MNT ramfs size=$SIZE 0 0" >> $TEMP_FSTAB
+
+# output generate file
+
+echo
+echo "===== $FSTAB ====="
+cat $TEMP_FSTAB
+
+# confirm update
+
+echo -n "Update? [Y/n] "
+read CONFIRM
+
+if [ -z "$CONFIRM" -o "$CONFIRM" = "Y" -o "$CONFIRM" = "y" ]; then
+    echo
+    echo "Updating file $FSTAB..."
+    mv $FSTAB $FSTAB_BAK
+    mv $TEMP_FSTAB $FSTAB
+
+    if grep tmpfs $MTAB | grep ramfs | grep -q $TMPFS_MNT ; then
+        echo "Unmounting $TMPFS_MNT..."
+        umount $TMPFS_MNT
+    fi
+
+    echo "Mounting $TMPFS_MNT..."
+    mount $TMPFS_MNT
+
+    echo "Done."
+else
+    echo "Aborted."
+fi

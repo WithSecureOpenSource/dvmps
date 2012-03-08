@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+#
+
+KVM_PATH=/usr/bin/kvm
+
+echo "Checking if KVM is supported..."
+echo
+
+echo -n " - Checking /proc/cpuinfo..."
+if grep -E 'svm|vmx' /proc/cpuinfo > /dev/null ; then
+    CPUINFO_FOUND=1
+    echo "OK"
+else
+    CPUINFO_FOUND=0
+    echo "FAIL"
+fi
+
+echo -n " - Checking for file $KVM_PATH..."
+if [ -x "$KVM_PATH" ]; then
+    KVM_FOUND=1
+    echo "OK"
+else
+    KVM_FOUND=0
+    echo "FAIL"
+fi
+
+echo -n " - Checking kernel modules..."
+if lsmod | grep kvm > /dev/null ; then
+    LSMOD_FOUND=1
+    echo "OK"
+else
+    LSMOD_FOUND=0
+    echo "FAIL"
+fi
+
+echo
+if [ $CPUINFO_FOUND -eq 0 ]; then
+    echo "FAIL: Hardware virtualization NOT supported."
+    EXIT_STATUS=1
+elif [ $KVM_FOUND -eq 0 ]; then
+    echo "FAIL: Hardware virtualization supported."
+    echo "FAIL: $KVM_PATH NOT found, please ensure 'qemu-kvm' package is installed."
+    EXIT_STATUS=1
+elif [ $LSMOD_FOUND -eq 0 ]; then
+    echo "FAIL: Hardware virtualization supported BUT disabled."
+    echo "FAIL: Please enable feature in BIOS."
+    EXIT_STATUS=1
+else
+    echo "OK: Hardware virtualization supported."
+    echo "OK: KVM modules loaded."
+    EXIT_STATUS=0
+fi
+
+exit $EXIT_STATUS

@@ -1,0 +1,116 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+#
+
+VCONFIG_PATH=/sbin/vconfig
+
+INTERFACES=/etc/network/interfaces
+INTERFACES_BAK=/etc/network/interfaces.bak
+RESOLVCONF=/etc/resolv.conf
+RESOLVCONF_BAK=/etc/resolv.conf.bak
+
+TEMP_INTERFACES=/tmp/interfaces.tmp.$$
+TEMP_RESOLVCONF=/tmp/resolv.conf.tmp.$$
+
+trap "rm -f $TEMP_INTERFACES $TEMP_RESOLVCONF" EXIT
+
+echo "Please enter the primary network interface (e.g. eth0). If VLAN is used,"
+echo "please enter the VLAN ID as part of the device name (e.g. eth0.538)."
+echo -n "[] "
+read DEV
+
+echo $DEV | grep -q "\."
+if [ $? -eq 0 -a ! -x $VCONFIG_PATH ]; then
+    echo "FAIL: VLAN is used, but $VCONFIG_PATH NOT found."
+    echo "FAIL: Please ensure 'vlan' package is installed."
+    exit 1
+fi
+
+echo -n "Enter $DEV address: "
+read ADDRESS
+echo -n "Enter $DEV netmask: "
+read NETMASK
+echo -n "Enter $DEV network: "
+read NETWORK
+echo -n "Enter $DEV broadcast: "
+read BROADCAST
+echo -n "Enter $DEV gateway: "
+read GATEWAY
+
+echo -n "Enter DNS nameservers (separated by spaces): "
+read DNS_NAMESERVERS
+echo -n "Enter DNS domains (separated by spaces): "
+read DNS_DOMAINS
+echo -n "Enter DNS searches (separated by spaces): "
+read DNS_SEARCHES
+
+echo "Generating file $INTERFACES..."
+
+cat > $TEMP_INTERFACES <<EOF
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto $DEV
+iface $DEV inet manual
+
+auto br0
+iface eth0 inet static
+	address $ADDRESS
+	netmask $NETMASK
+	network $NETWORK
+	broadcast $BROADCAST
+	gateway $GATEWAY
+        bridge_ports $DEV
+        bridge_stp off
+        bridge_fd 0
+        bridge_maxwait 0
+EOF
+
+echo "Generating file $RESOLVCONF..."
+
+for i in $DNS_NAMESERVERS; do
+    echo "nameserver $i" >> $TEMP_RESOLVCONF
+done
+for i in $DNS_DOMAINS; do
+    echo "domain $i" >> $TEMP_RESOLVCONF
+done
+for i in $DNS_SEARCHES; do
+    echo "search $i" >> $TEMP_RESOLVCONF
+done
+
+# output generated files
+
+echo
+echo "===== $INTERFACES ====="
+cat $TEMP_INTERFACES
+
+echo
+echo "===== $RESOLVCONF ====="
+cat $TEMP_RESOLVCONF
+
+# confirm update
+
+echo -n "Update? [Y/n] "
+read CONFIRM
+
+if [ -z "$CONFIRM" -o "$CONFIRM" = "Y" -o "$CONFIRM" = "y" ]; then
+    echo
+    echo "Updating file $INTERFACES..."
+    mv $INTERFACES $INTERFACES_BAK
+    mv $TEMP_INTERFACES $INTERFACES
+
+    echo
+    echo "Updating file $RESOLVCONF..."
+    mv $RESOLVCONF $RESOLVCONF_BAK
+    mv $TEMP_RESOLVCONF $RESOLVCONF
+
+    echo "Done."
+else
+    echo "Aborted."
+fi

@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+#
+
+PSQL_PATH=/usr/bin/psql
+CREATEUSER_PATH=/usr/bin/createuser
+CREATEDB_PATH=/usr/bin/createdb
+
+TEMP_FILE=/tmp/setup_database.tmp.$$
+
+trap "rm -f $TEMP_FILE" EXIT
+
+# ensure postgresql is installed and running
+
+if [ ! -x $PSQL_PATH ]; then
+    echo "FAIL: $PSQL_PATH NOT found."
+    echo "FAIL: Please ensure 'postgresql' package is installed."
+    exit 1
+fi
+
+su -c "$PSQL_PATH -c '\q'" postgres > /dev/null
+if [ $? -ne 0 ]; then
+    echo "FAIL: Cannot connect to 'postgres' database."
+    echo "FAIL: Please ensure database is running."
+    exit 1
+fi
+
+# create database user 'root' if not exist
+
+cat > $TEMP_FILE <<EOF
+SELECT 1 FROM pg_roles WHERE rolname='root';
+EOF
+
+if [ -z `su -c "$PSQL_PATH -Atf $TEMP_FILE" postgres` ]; then
+    echo "Creating database user 'root'..."
+    su -c "$CREATEUSER_PATH -s root" postgres
+else
+    echo "Database user 'root' already exists, skipping..."
+fi
+
+# create database 'dvmps' if not exist
+
+cat > $TEMP_FILE <<EOF
+SELECT 1 FROM pg_database where datname='dvmps';
+EOF
+
+if [ -z `su -c "$PSQL_PATH -Atf $TEMP_FILE" postgres` ]; then
+    echo "Creating database 'dvmps'..."
+    $CREATEDB_PATH dvmps
+else
+    echo "Database 'dvmps' already exists, skipping..."
+fi
+
+echo "Done."
