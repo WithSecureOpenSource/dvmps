@@ -1,0 +1,8 @@
+#
+# cron-jobs for dvmps cleanup
+#
+
+MAILTO=root
+
+*/5 * * * *	root	python /opt/dvmps/bin/DVMPSCleanup.py
+

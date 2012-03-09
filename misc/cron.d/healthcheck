@@ -1,0 +1,8 @@
+#
+# cron-jobs for healthcheck tripwire
+#
+
+MAILTO=root
+
+*/10 * * * *	root	python /opt/dvmps/bin/healthcheck.py
+
