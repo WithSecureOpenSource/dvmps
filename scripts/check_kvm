@@ -27,7 +27,7 @@ else
 fi
 
 echo -n " - Checking kernel modules..."
-if lsmod | grep kvm > /dev/null ; then
+if lsmod | grep kvm_ > /dev/null ; then
     LSMOD_FOUND=1
     echo "OK"
 else

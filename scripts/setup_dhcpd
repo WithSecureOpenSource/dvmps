@@ -48,8 +48,8 @@ max-lease-time 600;
 log-facility local7;
 
 subnet $SUBNET netmask $NETMASK {
-  authoritative;
   range $START_IP $END_IP;
+  authoritative;
 }
 
 EOF

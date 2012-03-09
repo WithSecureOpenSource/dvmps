@@ -40,9 +40,9 @@ read GATEWAY
 
 echo -n "Enter DNS nameservers (separated by spaces): "
 read DNS_NAMESERVERS
-echo -n "Enter DNS domains (separated by spaces): "
+echo -n "Enter DNS domains (separated by spaces or leave blank): "
 read DNS_DOMAINS
-echo -n "Enter DNS searches (separated by spaces): "
+echo -n "Enter DNS searches (separated by spaces or leave blank): "
 read DNS_SEARCHES
 
 echo "Generating file $INTERFACES..."
@@ -60,7 +60,7 @@ auto $DEV
 iface $DEV inet manual
 
 auto br0
-iface eth0 inet static
+iface br0 inet static
 	address $ADDRESS
 	netmask $NETMASK
 	network $NETWORK
