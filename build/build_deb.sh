@@ -53,7 +53,7 @@ install -m 0644 $2/misc/ipv4addr.py build_deb/opt/dvmps/extra/
 install -m 0644 $2/misc/mac_ip_generator.py build_deb/opt/dvmps/extra/
 
 install -m 0644 $2/misc/dvmps.nginx-site build_deb/opt/dvmps/extra/
-install -m 0644 $2/misc/DVMPS.schema build_deb/opt/dvmps/extra/dvmps.schema
+install -m 0644 $2/misc/dvmps.schema build_deb/opt/dvmps/extra/
 
 install -m 0644 $2/misc/munin/dvmps_dirsizes build_deb/opt/dvmps/extra/munin/
 install -m 0644 $2/misc/munin/dvmps_priorities build_deb/opt/dvmps/extra/munin/
