@@ -42,6 +42,7 @@ fi
 
 TMPFS=`grep -n tmpfs $FSTAB | grep ramfs | grep $BASEDIR`
 if [ $? -eq 0 ]; then 
+    echo
     echo $TMPFS
     echo -n "tmpfs are already configured, skip? [Y/n] "
     read CONFIRM

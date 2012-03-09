@@ -51,22 +51,23 @@ EOF
 if [ -z `su -c "$PSQL -Atf $TEMP_FILE" postgres` ]; then
     echo "Creating database 'dvmps'..."
     $CREATEDB dvmps
+
+    echo "Creating database schema..."
+    $PSQL -f $DVMPS_SCHEMA dvmps
+
+    echo
+    echo "Specify the IP address range for dynamic nodes."
+    echo -n "Enter start IP address: "
+    read START_IP
+    echo -n "Enter end IP address: "
+    read END_IP
+
+    echo
+    echo "Populating database..."
+    python $MAC_IP_GEN $START_IP $END_IP > $TEMP_MAC_IP
+    $PSQL -f $TEMP_MAC_IP dvmps
 else
     echo "Database 'dvmps' already exists, skipping..."
 fi
-
-echo "Creating database schema..."
-$PSQL -f $DVMPS_SCHEMA
-
-# mac to ip mappings
-echo "Specify the IP address range for dynamic nodes."
-echo -n "Enter start IP address: "
-read START_IP
-echo -n "Enter end IP address: "
-read END_IP
-
-echo "Populating database..."
-python $MAC_IP_GEN $START_IP $END_IP > $TEMP_MAC_IP
-$PSQL -f $TEMP_MAC_IP dvmps
 
 echo "Done."
