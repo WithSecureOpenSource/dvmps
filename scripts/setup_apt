@@ -40,7 +40,7 @@ cat $TEMP_SOURCESLIST
 
 echo
 echo "===== $PROXY ====="
-echo $TEMP_PROXY
+cat $TEMP_PROXY
 
 # confirm update
 
