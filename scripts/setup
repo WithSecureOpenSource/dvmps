@@ -22,8 +22,12 @@ if [ "$CONFIRM_APT" = "Y" -o "$CONFIRM_APT" = "y" ]; then
     $BASE_DIR/setup_apt
 fi
 
-echo "Update packages..."
-apt-get -f install
+echo -n "Update packages? [y/N] "
+read CONFIRM_PKG
+if [ "$CONFIRM_PKG" = "Y" -o "$CONFIRM_PKG" = "y" ]; then
+    apt-get update
+    apt-get -fy install
+fi
 
 $BASE_DIR/check_kvm
 
@@ -87,7 +91,7 @@ fi
 echo -n "Set up DVMPS? [y/N] "
 read CONFIRM_DVMPS
 if [ "$CONFIRM_DVMPS" = "Y" -o "$CONFIRM_DVMPS" = "y" ]; then
-    update-rc.d dvmps default
+    update-rc.d dvmps defaults
 fi
 
 echo -n "Stop/start DVMPS? [y/N] "
@@ -96,4 +100,5 @@ if [ "$CONFIRM_DVMPS" = "Y" -o "$CONFIRM_DVMPS" = "y" ]; then
     /etc/init.d/dvmps start
 fi
 
+echo
 echo "Setup done."

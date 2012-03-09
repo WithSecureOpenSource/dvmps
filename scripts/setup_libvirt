@@ -56,9 +56,12 @@ echo -n "Enter tmpfs size (supported suffix: K, M, G): "
 read SIZE
 
 echo "Generating file $FSTAB..."
-
-TMPFS_N=`echo $TMPFS | cut -f1 -d:`
-sed -e ${TMPFS_N}d $FSTAB > $TEMP_FSTAB
+if [ -n "$TMPFS" ]; then
+    TMPFS_N=`echo $TMPFS | cut -f1 -d:`
+    sed -e ${TMPFS_N}d $FSTAB > $TEMP_FSTAB
+else
+    cat $FSTAB > $TEMP_FSTAB
+fi
 echo "tmpfs $TMPFS_MNT ramfs size=$SIZE 0 0" >> $TEMP_FSTAB
 
 # output generate file
