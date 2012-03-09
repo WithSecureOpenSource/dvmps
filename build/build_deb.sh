@@ -40,7 +40,10 @@ install -m 0755 $2/scripts/check_kvm build_deb/opt/dvmps/setup_scripts/
 install -m 0755 $2/scripts/setup build_deb/opt/dvmps/setup_scripts/
 install -m 0755 $2/scripts/setup_apt build_deb/opt/dvmps/setup_scripts/
 install -m 0755 $2/scripts/setup_database build_deb/opt/dvmps/setup_scripts/
+install -m 0755 $2/scripts/setup_dhcpd build_deb/opt/dvmps/setup_scripts/
+install -m 0755 $2/scripts/setup_httpd build_deb/opt/dvmps/setup_scripts/
 install -m 0755 $2/scripts/setup_libvirt build_deb/opt/dvmps/setup_scripts/
+install -m 0755 $2/scripts/setup_munin_node build_deb/opt/dvmps/setup_scripts/
 install -m 0755 $2/scripts/setup_network build_deb/opt/dvmps/setup_scripts/
 
 install -m 0644 $2/misc/dhcp_config_generator.py build_deb/opt/dvmps/extra/
