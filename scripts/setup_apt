@@ -13,7 +13,8 @@ TEMP_PROXY=/tmp/00Proxy.tmp.$$
 
 trap "rm -f $TEMP_SOURCESLIST $TEMP_PROXY" EXIT
 
-echo -n "Please specify APT HTTP proxy (e.g. host:port): "
+echo "Please specify APT HTTP proxy or leave blank if none."
+echo -n "(e.g. http://host:port): "
 read HTTP_PROXY
 
 echo "Generating file $SOURCESLIST..."
@@ -26,11 +27,13 @@ deb http://security.debian.org/ wheezy/updates main contrib non-free
 deb-src http://security.debian.org/ wheezy/updates main contrib non-free
 EOF
 
-echo "Generating file $PROXY..."
+if [ -n "$HTTP_PROXY" ]; then
+    echo "Generating file $PROXY..."
 
-cat > $TEMP_PROXY <<EOF
-Acquire::http::Proxy "http://$HTTP_PROXY";
+    cat > $TEMP_PROXY <<EOF
+Acquire::http::Proxy "$HTTP_PROXY";
 EOF
+fi
 
 # output generated files
 
@@ -38,9 +41,11 @@ echo
 echo "===== $SOURCESLIST ====="
 cat $TEMP_SOURCESLIST
 
-echo
-echo "===== $PROXY ====="
-cat $TEMP_PROXY
+if [ -n "$HTTP_PROXY" ]; then
+    echo
+    echo "===== $PROXY ====="
+    cat $TEMP_PROXY
+fi
 
 # confirm update
 
@@ -53,12 +58,14 @@ if [ -z "$CONFIRM" -o "$CONFIRM" = "Y" -o "$CONFIRM" = "y" ]; then
     mv $SOURCESLIST $SOURCESLIST_BAK
     mv $TEMP_SOURCESLIST $SOURCESLIST
 
-    echo
-    echo "Updating file $PROXY..."
-    if [ -f $PROXY ]; then
-        mv $PROXY $PROXY_BAK
+    if [ -n "$HTTP_PROXY" ]; then
+        echo
+        echo "Updating file $PROXY..."
+        if [ -f $PROXY ]; then
+            mv $PROXY $PROXY_BAK
+        fi
+        mv $TEMP_PROXY $PROXY
     fi
-    mv $TEMP_PROXY $PROXY
 
     echo "Done."
 else
