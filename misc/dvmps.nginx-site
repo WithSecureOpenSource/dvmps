@@ -15,5 +15,12 @@ server {
                 include                 fastcgi_params;
                 fastcgi_read_timeout    180;
                 fastcgi_send_timeout    180;
+                add_header Access-Control-Allow-Origin "*";
+                add_header Access-Control-Allow-Methods GET,POST;
+                add_header Access-Control-Allow-Headers "Content-Type";
+        }
+
+        location /munin {
+                alias                   /var/cache/munin/www/;
         }
 }

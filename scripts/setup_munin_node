@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+#
+
+MUNIN_NODE_INIT=/etc/init.d/munin-node
+PLUGINS_SRC=/opt/dvmps/extra/munin
+PLUGINS_DEST=/etc/munin/plugins
+FILES="dvmps_dirsizes dvmps_priorities dvmps_priorities_pct dvmps_types"
+
+for f in $FILES ; do
+    install -m 0644 $PLUGINS_SRC/$f $PLUGINS_DEST/
+done
+
+echo "Stopping Munin node..."
+$MUNIN_NODE_INIT stop
+
+echo "Starting Munin node..."
+$MUNIN_NODE_INIT start
+
+echo "Done."

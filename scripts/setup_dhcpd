@@ -1,0 +1,84 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+#
+
+DHCPD_INIT=/etc/init.d/isc-dhcp-server
+DHCPDCONF_GEN=/opt/dvmps/extra/dhcp_config_generator.py
+
+DHCPDCONF=/etc/dhcp/dhcpd.conf
+DHCPDCONF_BAK=/etc/dhcp/dhcpd.conf.bak
+
+TEMP_DHCPDCONF=/dhcpd.conf.tmp.$$
+
+trap "rm -f $TEMP_DHCPDCONF" EXIT
+
+echo -n "Enter domain name: "
+read DOMAIN_NAME
+echo -n "Enter domain name servers (separated by commas): "
+read DOMAIN_NAME_SERVERS
+echo -n "Enter routers (separated by commas): "
+read ROUTERS
+echo -n "Enter time servers (separated by commas): "
+read TIME_SERVERS
+
+echo -n "Enter subnet: "
+read SUBNET
+echo -n "Enter netmask: "
+read NETMASK
+echo -n "Enter IP start range: "
+read START_IP
+echo -n "Enter IP end range: "
+read END_IP
+
+echo "Generating file $DHCPDCONF..."
+
+cat > $TEMP_DHCPDCONF <<EOF
+ddns-update-style none;
+
+# option definitions common to all supported networks...
+option domain-name "$DOMAIN_NAME";
+option domain-name-servers $DOMAIN_NAME_SERVERS;
+option routers $ROUTERS;
+option time-servers $TIME_SERVERS;
+
+default-lease-time 600;
+max-lease-time 600;
+
+log-facility local7;
+
+subnet $SUBNET netmask $NETMASK {
+  authoritative;
+  range $START_IP $END_IP;
+}
+
+EOF
+
+python $DHCPDCONF_GEN $START_IP $END_IP >> $TEMP_DHCPDCONF
+
+# output generated file
+
+echo
+echo "===== $DHCPDCONF ====="
+cat $TEMP_DHCPDCONF
+
+# confirm update
+
+echo -n "Update? [Y/n] "
+read CONFIRM
+
+if [ -z "$CONFIRM" -o "$CONFIRM" = "Y" -o "$CONFIRM" = "y" ]; then
+    echo
+    echo "Updating file $DHCPDCONF..."
+    mv $DHCPDCONF $DHCPDCONF_BAK
+    mv $TEMP_DHCPDCONF $DHCPDCONF
+
+    echo "Stopping DHCP server..."
+    $DHCPD_INIT stop
+    echo "Starting DHCP server..."
+    $DHCPD_INIT start
+
+    echo "Done."
+else
+    echo "Aborted."
+fi

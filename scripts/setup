@@ -75,13 +75,25 @@ fi
 echo -n "Set up cron? [y/N] "
 read CONFIRM_CRON
 if [ "$CONFIRM_CRON" = "Y" -o "$CONFIRM_CRON" = "y" ]; then
-    $BASE_DIR/setup_cron
+    /etc/init.d/cron reload
 fi
 
 echo -n "Set up Munin node? [y/N] "
-read CONFIRM_MUNIN
-if [ "$CONFIRM_MUNIN" = "Y" -o "$CONFIRM_MUNIN" = "y" ]; then
-    $BASE_DIR/setup_munin
+read CONFIRM_MUNIN_NODE
+if [ "$CONFIRM_MUNIN_NODE" = "Y" -o "$CONFIRM_MUNIN_NODE" = "y" ]; then
+    $BASE_DIR/setup_munin_node
+fi
+
+echo -n "Set up DVMPS? [y/N] "
+read CONFIRM_DVMPS
+if [ "$CONFIRM_DVMPS" = "Y" -o "$CONFIRM_DVMPS" = "y" ]; then
+    update-rc.d dvmps default
+fi
+
+echo -n "Stop/start DVMPS? [y/N] "
+if [ "$CONFIRM_DVMPS" = "Y" -o "$CONFIRM_DVMPS" = "y" ]; then
+    /etc/init.d/dvmps stop
+    /etc/init.d/dvmps start
 fi
 
 echo "Setup done."

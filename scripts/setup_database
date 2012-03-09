@@ -3,23 +3,26 @@
 # Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
 #
 
-PSQL_PATH=/usr/bin/psql
-CREATEUSER_PATH=/usr/bin/createuser
-CREATEDB_PATH=/usr/bin/createdb
+PSQL=/usr/bin/psql
+CREATEUSER=/usr/bin/createuser
+CREATEDB=/usr/bin/createdb
+DVMPS_SCHEMA=/opt/dvmps/extra/dvmps.schema
+MAC_IP_GEN=/opt/dvmps/extra/mac_ip_generator.py
 
 TEMP_FILE=/tmp/setup_database.tmp.$$
+TEMP_MAC_IP=/tmp/mac_ip.tmp.$$
 
-trap "rm -f $TEMP_FILE" EXIT
+trap "rm -f $TEMP_FILE $TEMP_MAC_IP" EXIT
 
 # ensure postgresql is installed and running
 
-if [ ! -x $PSQL_PATH ]; then
-    echo "FAIL: $PSQL_PATH NOT found."
+if [ ! -x $PSQL ]; then
+    echo "FAIL: $PSQL NOT found."
     echo "FAIL: Please ensure 'postgresql' package is installed."
     exit 1
 fi
 
-su -c "$PSQL_PATH -c '\q'" postgres > /dev/null
+su -c "$PSQL -c '\q'" postgres > /dev/null
 if [ $? -ne 0 ]; then
     echo "FAIL: Cannot connect to 'postgres' database."
     echo "FAIL: Please ensure database is running."
@@ -32,9 +35,9 @@ cat > $TEMP_FILE <<EOF
 SELECT 1 FROM pg_roles WHERE rolname='root';
 EOF
 
-if [ -z `su -c "$PSQL_PATH -Atf $TEMP_FILE" postgres` ]; then
+if [ -z `su -c "$PSQL -Atf $TEMP_FILE" postgres` ]; then
     echo "Creating database user 'root'..."
-    su -c "$CREATEUSER_PATH -s root" postgres
+    su -c "$CREATEUSER -s root" postgres
 else
     echo "Database user 'root' already exists, skipping..."
 fi
@@ -45,11 +48,25 @@ cat > $TEMP_FILE <<EOF
 SELECT 1 FROM pg_database where datname='dvmps';
 EOF
 
-if [ -z `su -c "$PSQL_PATH -Atf $TEMP_FILE" postgres` ]; then
+if [ -z `su -c "$PSQL -Atf $TEMP_FILE" postgres` ]; then
     echo "Creating database 'dvmps'..."
-    $CREATEDB_PATH dvmps
+    $CREATEDB dvmps
 else
     echo "Database 'dvmps' already exists, skipping..."
 fi
+
+echo "Creating database schema..."
+$PSQL -f $DVMPS_SCHEMA
+
+# mac to ip mappings
+echo "Specify the IP address range for dynamic nodes."
+echo -n "Enter start IP address: "
+read START_IP
+echo -n "Enter end IP address: "
+read END_IP
+
+echo "Populating database..."
+python $MAC_IP_GEN $START_IP $END_IP > $TEMP_MAC_IP
+$PSQL -f $TEMP_MAC_IP dvmps
 
 echo "Done."

@@ -14,32 +14,54 @@ if test -d build_deb; then
     rm -rf build_deb
 fi
 
-mkdir build_deb
-
 mkdir -p build_deb/DEBIAN/
 
-mkdir -p build_deb/opt/dvmps/bin
-mkdir -p build_deb/opt/dvmps/scripts
-#mkdir -p build_deb/opt/dvmps/extra
-mkdir -p build_deb/var/opt/dvmps
+install -d build_deb/opt/dvmps/bin
+install -d build_deb/opt/dvmps/setup_scripts
+install -d build_deb/opt/dvmps/extra
+install -d build_deb/opt/dvmps/extra/munin
+install -d build_deb/etc/cron.hourly
+install -d build_deb/etc/cron.d
+install -d build_deb/etc/init.d
+install -d build_deb/var/opt/dvmps/run
 
-cp $2/misc/dvmps.init build_deb/DEBIAN/
+install -m 0644 $2/service/DVMPSCleanup.py build_deb/opt/dvmps/bin/
+install -m 0644 $2/service/DVMPSClient.py build_deb/opt/dvmps/bin/
+install -m 0644 $2/service/DVMPSDAO.py build_deb/opt/dvmps/bin/
+install -m 0644 $2/service/DVMPSPlacementAgent.py build_deb/opt/dvmps/bin/
+install -m 0644 $2/service/DVMPSService.py build_deb/opt/dvmps/bin/
+install -m 0644 $2/service/DVMPSWSGIFlup.py build_deb/opt/dvmps/bin/
+install -m 0644 $2/service/DVMPSWSGI.py build_deb/opt/dvmps/bin/
+install -m 0644 $2/service/DVMPSWSGIRef.py build_deb/opt/dvmps/bin/
 
-cp $2/service/DVMPSCleanup.py build_deb/opt/dvmps/bin/
-cp $2/service/DVMPSClient.py build_deb/opt/dvmps/bin/
-cp $2/service/DVMPSDAO.py build_deb/opt/dvmps/bin/
-cp $2/service/DVMPSPlacementAgent.py build_deb/opt/dvmps/bin/
-cp $2/service/DVMPSService.py build_deb/opt/dvmps/bin/
-cp $2/service/DVMPSWSGIFlup.py build_deb/opt/dvmps/bin/
-cp $2/service/DVMPSWSGI.py build_deb/opt/dvmps/bin/
-cp $2/service/DVMPSWSGIRef.py build_deb/opt/dvmps/bin/
+install -m 0644 $2/misc/healthcheck.py build_deb/opt/dvmps/bin/
 
-cp $2/scripts/check_kvm build_deb/opt/dvmps/scripts/
-cp $2/scripts/setup build_deb/opt/dvmps/scripts/
-cp $2/scripts/setup_apt build_deb/opt/dvmps/scripts/
-cp $2/scripts/setup_database build_deb/opt/dvmps/scripts/
-cp $2/scripts/setup_libvirt build_deb/opt/dvmps/scripts/
-cp $2/scripts/setup_network build_deb/opt/dvmps/scripts/
+install -m 0755 $2/scripts/check_kvm build_deb/opt/dvmps/setup_scripts/
+install -m 0755 $2/scripts/setup build_deb/opt/dvmps/setup_scripts/
+install -m 0755 $2/scripts/setup_apt build_deb/opt/dvmps/setup_scripts/
+install -m 0755 $2/scripts/setup_database build_deb/opt/dvmps/setup_scripts/
+install -m 0755 $2/scripts/setup_libvirt build_deb/opt/dvmps/setup_scripts/
+install -m 0755 $2/scripts/setup_network build_deb/opt/dvmps/setup_scripts/
+
+install -m 0644 $2/misc/dhcp_config_generator.py build_deb/opt/dvmps/extra/
+install -m 0644 $2/misc/dns_config_generator.py build_deb/opt/dvmps/extra/
+install -m 0644 $2/misc/dns_reverse_config_generator.py build_deb/opt/dvmps/extra/
+install -m 0644 $2/misc/ipv4addr.py build_deb/opt/dvmps/extra/
+install -m 0644 $2/misc/mac_ip_generator.py build_deb/opt/dvmps/extra/
+
+install -m 0644 $2/misc/dvmps.nginx-site build_deb/opt/dvmps/extra/
+install -m 0644 $2/misc/DVMPS.schema build_deb/opt/dvmps/extra/dvmps.schema
+
+install -m 0644 $2/misc/munin/dvmps_dirsizes build_deb/opt/dvmps/extra/munin/
+install -m 0644 $2/misc/munin/dvmps_priorities build_deb/opt/dvmps/extra/munin/
+install -m 0644 $2/misc/munin/dvmps_priorities_pct build_deb/opt/dvmps/extra/munin/
+install -m 0644 $2/misc/munin/dvmps_types build_deb/opt/dvmps/extra/munin/
+
+install -m 0644 $2/misc/cron.hourly/ntpdate build_deb/etc/cron.hourly/
+install -m 0644 $2/misc/cron.d/dvmps_cleanup build_deb/etc/cron.d/
+install -m 0644 $2/misc/cron.d/healthcheck build_deb/etc/cron.d/
+
+install -m 0755 $2/misc/dvmps.init build_deb/etc/init.d/dvmps
 
 cat > build_deb/DEBIAN/control <<EOF
 Package: dvmps

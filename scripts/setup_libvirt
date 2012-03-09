@@ -51,7 +51,7 @@ if [ $? -eq 0 ]; then
     fi
 fi
 
-echo -n "Enter tmpfs size: "
+echo -n "Enter tmpfs size (supported suffix: K, M, G): "
 read SIZE
 
 echo "Generating file $FSTAB..."
