@@ -14,6 +14,11 @@ for f in $FILES ; do
     ln -s $PLUGIN_DEST/$f $PLUGINS_LINK_DEST/$f
 done
 
+if [ ! grep -q -i "Allow .*" /etc/munin/munin-node.conf ]
+then
+    echo "Allow .*" >> /etc/munin/munin-node.conf
+fi
+
 echo "Stopping Munin node..."
 $MUNIN_NODE_INIT stop
 
