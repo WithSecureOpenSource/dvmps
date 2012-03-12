@@ -10,40 +10,6 @@ class DatabaseConnection:
             self.dbconnection.close()
             self.dbconnection = None
 
-class BaseImages:
-    def __init__(self, dbaseconnection):
-        self.dbc = dbaseconnection
-
-    def get_base_image_configuration_by_name(self, base_image_name):
-        ret = None
-        cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("select id, base_image_name, configuration_template, base_image_file, description from base_images where base_image_name = %s", (base_image_name,))
-        if cursor.rowcount > 0:
-            base = cursor.fetchone()
-            ret = { "id": base[0], "base_image_name" : base[1], "configuration_template": base[2], "base_image_file": base[3], "description": base[4] }
-        cursor.close()
-        return ret
-
-    def get_base_image_configuration(self, base_image_id):
-        ret = None
-        cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("select id, base_image_name, configuration_template, base_image_file, description from base_images where id = %d", (base_image_id,))
-        if cursor.rowcount > 0:
-            base = cursor.fetchone()
-            ret = { "id": base[0], "base_image_name" : base[1], "configuration_template": base[2], "base_image_file": base[3], "description": base[4] }
-        cursor.close()
-        return ret
-
-    def get_base_images(self):
-        ret = []
-        cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("select id, base_image_name, configuration_template, base_image_file, description from base_images")
-        base_images = cursor.fetchall()
-        for base in base_images:
-            ret.append({ "id": base[0], "base_image_name" : base[1], "configuration_template": base[2], "base_image_file": base[3], "description": base[4] })
-        cursor.close()
-        return ret
-
 class MacIpPairs:
     def __init__(self, dbaseconnection):
         self.dbc = dbaseconnection
@@ -137,11 +103,11 @@ class AllocatedImages:
     def __init__(self, dbaseconnection):
         self.dbc = dbaseconnection
 
-    def allocate(self, instance_name, mac_id, base_image_id, valid_for=3600, priority=50, comment=''):
+    def allocate(self, instance_name, mac_id, base_image_name, valid_for=3600, priority=50, comment=''):
         result = False
         timenow = int(time.time())
         cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("insert into allocated (instance_name, mac_id, base_image_id, creation_time, valid_for, priority, comment) values (%s, %d, %d, %d, %d, %d, %s)", (instance_name, mac_id, base_image_id, timenow, valid_for, priority, comment))
+        cursor.execute("insert into allocated (instance_name, mac_id, base_image_name, creation_time, valid_for, priority, comment) values (%s, %d, %s, %d, %d, %d, %s)", (instance_name, mac_id, base_image_name, timenow, valid_for, priority, comment))
         if cursor.rowcount > 0:
             result = True
         self.dbc.dbconnection.commit()
@@ -172,10 +138,10 @@ class AllocatedImages:
     def get_configuration(self, instance_name):
         ret = None
         cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("select id, instance_name, mac_id, base_image_id, creation_time, valid_for, priority, comment from allocated where instance_name = %s", (instance_name,))
+        cursor.execute("select id, instance_name, mac_id, base_image_name, creation_time, valid_for, priority, comment from allocated where instance_name = %s", (instance_name,))
         if cursor.rowcount > 0:
             image = cursor.fetchone()
-            ret = { "id": image[0], "instance_name" : image[1], "mac_id": image[2], "base_image_id": image[3], "creation_time": image[4], "valid_for": image[5], "priority": image[6], "comment": image[7] }
+            ret = { "id": image[0], "instance_name" : image[1], "mac_id": image[2], "base_image_name": image[3], "creation_time": image[4], "valid_for": image[5], "priority": image[6], "comment": image[7] }
         cursor.close()
         return ret
 

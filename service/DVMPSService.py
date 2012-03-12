@@ -20,16 +20,19 @@ class DVMPSService():
         self.sync_lock = threading.Lock()
 
     def __cloned_disk_image_path(self, image_id):
-        return '/var/lib/libvirt/images/active_dynamic/%s.img' % image_id
+        return '/var/lib/libvirt/images/active_dynamic/%s.qcow2' % image_id
 
     def __cloned_xml_definition_path(self, image_id):
         return '/var/lib/libvirt/qemu/active_dynamic/%s.xml' % image_id
 
-    def __base_disk_image_path(self, filename):
-        return '/var/lib/libvirt/images/base/%s' % filename
+    def __base_image_definitions_path(self):
+        return '/var/lib/libvirt/base_images'
 
-    def __base_xml_template_path(self, filename):
-        return '/var/lib/libvirt/qemu/templates/%s' % filename
+    def __base_disk_image_path(self, base_image_name):
+        return '/var/lib/libvirt/base_images/%s/disk_image.qcow2' % base_image_name
+
+    def __base_xml_template_path(self, base_image_name):
+        return '/var/lib/libvirt/base_images/%s/virtual_machine_config.xml' % base_image_name
 
     def __run_command(self, command_and_args):
         proc = subprocess.Popen(command_and_args, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -64,23 +67,33 @@ class DVMPSService():
                 port = str(port_candidate)
         return port
 
+    def __list_base_images(self):
+        return os.listdir(self.__base_image_definitions_path())
+
     def __create_image(self, image_id):
         retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
-        bim = DVMPSDAO.BaseImages(dbc)
         mip = DVMPSDAO.MacIpPairs(dbc)
 
+        base_images = self.__list_base_images()
+
         allocated_image_conf = ali.get_configuration(image_id)
-        if allocated_image_conf is not None and allocated_image_conf.has_key('base_image_id') and allocated_image_conf.has_key('mac_id'):
+        if allocated_image_conf is not None and allocated_image_conf.has_key('base_image_name') and allocated_image_conf.has_key('mac_id'):
             full_path_base_image_file = None
             full_path_xml_template_file = None
             mac = None
 
-            base_image_conf = bim.get_base_image_configuration(allocated_image_conf['base_image_id'])
-            if base_image_conf is not None and base_image_conf.has_key('base_image_file') and base_image_conf.has_key('configuration_template'):
-                full_path_base_image_file = self.__base_disk_image_path(base_image_conf['base_image_file'])
-                full_path_xml_template_file = self.__base_xml_template_path(base_image_conf['configuration_template'])
+            if allocated_image_conf['base_image_name'] in base_images:
+                try:
+                    __full_path_base_image_file = self.__base_disk_image_path(allocated_image_conf['base_image_name'])
+                    __full_path_xml_template_file = self.__base_xml_template_path(allocated_image_conf['base_image_name'])
+                    os.stat(__full_path_base_image_file)
+                    os.stat(__full_path_xml_template_file)
+                    full_path_base_image_file = __full_path_base_image_file
+                    full_path_xml_template_file = __full_path_xml_template_file
+                except:
+                    pass
 
             if allocated_image_conf.has_key('mac_id'):
                 mac = mip.get_mac_for_mac_id(allocated_image_conf['mac_id'])
@@ -240,14 +253,14 @@ class DVMPSService():
 
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
-        bim = DVMPSDAO.BaseImages(dbc)
         mip = DVMPSDAO.MacIpPairs(dbc)
 
         image_id = str(uuid.uuid4())
 
         self.logger.info("allocate_image: request to allocate image of type %s" % (base_image,))
-        base_image_conf = bim.get_base_image_configuration_by_name(base_image)
-        if base_image_conf is None or not base_image_conf.has_key('id') or not base_image_conf.has_key('base_image_file') or not base_image_conf.has_key('configuration_template'):
+
+        base_images = self.__list_base_images()
+        if base_image not in base_images:
             self.logger.warn("allocate_image: no such base_image configured %s" % (base_image,))
             return { 'result': False, 'error': 'No such base image configured' }
 
@@ -283,7 +296,7 @@ class DVMPSService():
             self.logger.warn("allocate_image: no free MAC/IP pairs")
             return { 'result': False, 'error': 'Could not allocate a free MAC address' }
 
-        if ali.allocate(image_id, mac_id, base_image_conf['id'], valid_for=valid_for, comment=comment, priority=priority) == False:
+        if ali.allocate(image_id, mac_id, base_image, valid_for=valid_for, comment=comment, priority=priority) == False:
             self.logger.error("allocate_image: failed to allocate image (DAO)")
             self.sync_lock.acquire()
             mip.deallocate(mac_id)
@@ -358,7 +371,6 @@ class DVMPSService():
     def __image_status(self, image_id):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
-        bim = DVMPSDAO.BaseImages(dbc)
         mip = DVMPSDAO.MacIpPairs(dbc)
 
         ret_val = None
@@ -375,10 +387,8 @@ class DVMPSService():
                 valid_for = allocated_image_conf['creation_time'] + allocated_image_conf['valid_for'] - int(time.time())
             if allocated_image_conf.has_key('mac_id'):
                 ip_addr = mip.get_ip_for_mac_id(allocated_image_conf['mac_id'])
-            if allocated_image_conf.has_key('base_image_id'):
-                base_image_record = bim.get_base_image_configuration(allocated_image_conf['base_image_id'])
-                if base_image_record is not None and base_image_record.has_key('base_image_name'):
-                    base_image = base_image_record['base_image_name']
+            if allocated_image_conf.has_key('base_image_name'):
+                base_image = allocated_image_conf['base_image_name']
             if allocated_image_conf.has_key('comment'):
                 comment = allocated_image_conf['comment']
             if allocated_image_conf.has_key('priority'):
@@ -451,9 +461,9 @@ class DVMPSService():
 
     def base_images(self):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
-        bim = DVMPSDAO.BaseImages(dbc)
 
-        base_images = bim.get_base_images()
+        base_images = self.__list_base_images()
+
         return { 'result': True, 'base_images': base_images }
 
     def set_maintenance_mode(self, maintenance=True, message=''):
@@ -463,25 +473,20 @@ class DVMPSService():
 
     def get_node_images(self):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
-        bim = DVMPSDAO.BaseImages(dbc)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
-        base_images = bim.get_base_images()
-        base_images_id_name_map = {}
+        base_images = self.__list_base_images()
         image_counts = {}
 
         for base_image in base_images:
-            base_images_id_name_map[base_image['id']] = base_image['base_image_name']
-            image_counts[base_image['base_image_name']] = 0
+            image_counts[base_image] = 0
         base_image_names = image_counts.keys()
 
         running_images = ali.get_images()
         for image in running_images:
             image_info = ali.get_configuration(image)
-            if image_info is not None and image_info.has_key('base_image_id'):
-                if base_images_id_name_map.has_key(image_info['base_image_id']):
-                    base_image_name = base_images_id_name_map[image_info['base_image_id']]
-                    image_counts[base_image_name] = image_counts[base_image_name] + 1
+            if image_info is not None and image_info.has_key('base_image_name') and image_counts.has_key(image_info['base_image_name']):
+                image_counts[image_info['base_image_name']] = image_counts[image_info['base_image_name']] + 1
 
         result = []
         for name in base_image_names:
