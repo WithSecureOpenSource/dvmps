@@ -40,7 +40,7 @@ fi
 
 # setup tmpfs
 
-TMPFS=`grep -n tmpfs $FSTAB | grep ramfs | grep $BASEDIR`
+TMPFS=`grep -E 'tmpfs|ramfs' $FSTAB | grep $BASEDIR`
 if [ $? -eq 0 ]; then 
     echo
     echo $TMPFS
@@ -62,7 +62,7 @@ if [ -n "$TMPFS" ]; then
 else
     cat $FSTAB > $TEMP_FSTAB
 fi
-echo "tmpfs $TMPFS_MNT ramfs size=$SIZE 0 0" >> $TEMP_FSTAB
+echo "tmpfs $TMPFS_MNT tmpfs size=$SIZE 0 0" >> $TEMP_FSTAB
 
 # output generate file
 
@@ -81,7 +81,7 @@ if [ -z "$CONFIRM" -o "$CONFIRM" = "Y" -o "$CONFIRM" = "y" ]; then
     mv $FSTAB $FSTAB_BAK
     mv $TEMP_FSTAB $FSTAB
 
-    if grep tmpfs $MTAB | grep ramfs | grep -q $TMPFS_MNT ; then
+    if grep -E 'tmpfs|ramfs' $MTAB | grep -q $TMPFS_MNT ; then
         echo "Unmounting $TMPFS_MNT..."
         umount $TMPFS_MNT
     fi
