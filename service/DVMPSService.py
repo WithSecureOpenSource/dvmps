@@ -124,7 +124,12 @@ class DVMPSService():
         return retval
 
     def __poweron_image_try(self, image_id, xml_spec, track=3):
-        connection = libvirt.open(None)
+        try:
+            connection = libvirt.open(None)
+        except:
+            self.logger.error("__poweron_image(%s): failed to open libvirt connection, exception: %s" % (image_id, str(sys.exc_info()[1])))
+            return False
+            
         dom = None
         try:
             dom = connection.createXML(xml_spec, 0)
