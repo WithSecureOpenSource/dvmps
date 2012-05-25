@@ -11,7 +11,7 @@ FILES="dvmps_dirsizes dvmps_priorities dvmps_priorities_pct dvmps_types dvmps_cl
 
 for f in $FILES ; do
     install -m 0644 $PLUGINS_SRC/$f $PLUGINS_DEST/
-    ln -s $PLUGIN_DEST/$f $PLUGINS_LINK_DEST/$f
+    ln -s $PLUGINS_DEST/$f $PLUGINS_LINK_DEST/$f
 done
 
 if [ ! grep -q -i "Allow .*" /etc/munin/munin-node.conf ]
