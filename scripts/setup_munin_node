@@ -10,7 +10,7 @@ PLUGINS_LINK_DEST=/etc/munin/plugins
 FILES="dvmps_dirsizes dvmps_priorities dvmps_priorities_pct dvmps_types dvmps_clonerate"
 
 for f in $FILES ; do
-    install -m 0644 $PLUGINS_SRC/$f $PLUGINS_DEST/
+    install -m 0755 $PLUGINS_SRC/$f $PLUGINS_DEST/
     ln -s $PLUGINS_DEST/$f $PLUGINS_LINK_DEST/$f
 done
 
