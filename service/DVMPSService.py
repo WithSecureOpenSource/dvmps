@@ -39,19 +39,16 @@ class DVMPSService():
         (sout,serr) = proc.communicate()
         return (proc.returncode, sout, serr)
 
-    def __get_vnc_port(self, image_id):
+    def __get_vnc_port(self, image_id, connection=None):
         port = None
-        connection = libvirt.openReadOnly(None)
 
         try:
             domain = connection.lookupByName(image_id)
         except:
-            connection.close()
             self.logger.warn("__get_vnc_port(%s): no such domain, exception: %s" % (image_id, str(sys.exc_info()[1])))
             return None
 
         xmlspec = domain.XMLDesc(0)
-        connection.close()
         nodes = []
 
         try:
@@ -123,19 +120,12 @@ class DVMPSService():
 
         return retval
 
-    def __poweron_image_try(self, image_id, xml_spec, track=3):
-        try:
-            connection = libvirt.open(None)
-        except:
-            self.logger.error("__poweron_image(%s): failed to open libvirt connection, exception: %s" % (image_id, str(sys.exc_info()[1])))
-            return False
-            
+    def __poweron_image_try(self, image_id, xml_spec, track=3, connection=None):
         dom = None
         try:
             dom = connection.createXML(xml_spec, 0)
         except:
             self.logger.error("__poweron_image(%s): failed to launch image, exception: %s" % (image_id,str(sys.exc_info()[1])))
-            connection.close()
             return False
         if track > 0:
             time.sleep(track)
@@ -143,13 +133,11 @@ class DVMPSService():
             dom = connection.lookupByName(image_id)
         except:
             self.logger.error("__poweron_image(%s): despite successfully reported launch, domain is not found, exception: %s" % (image_id,str(sys.exc_info()[1])))
-            connection.close()
             return False
         self.logger.info("__poweron_image(%s): image successfully launched" % (image_id,))
-        connection.close()
         return True
 
-    def __poweron_image(self, image_id):
+    def __poweron_image(self, image_id, connection=None):
         retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
@@ -162,24 +150,23 @@ class DVMPSService():
             xml_spec = fh.read()
             fh.close()
 
-            dom = self.__poweron_image_try(image_id, xml_spec, track=3)
+            dom = self.__poweron_image_try(image_id, xml_spec, track=3, connection=connection)
             if dom == False:
                 self.logger.warn("__poweron_image(%s): failed once, retrying" % (image_id,))
-                dom = self.__poweron_image_try(image_id, xml_spec, track=3)
+                dom = self.__poweron_image_try(image_id, xml_spec, track=3, connection=connection)
             if dom != False:
                 retval = True
         else:
             self.logger.warn("__poweron_image(%s): failed to look up image configuration" % (image_id,))
         return retval
 
-    def __poweroff_image(self, image_id):
+    def __poweroff_image(self, image_id, connection=None):
         retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
-            connection = libvirt.open(None)
             dom = None
             try:
                 dom = connection.lookupByName(image_id)
@@ -193,9 +180,9 @@ class DVMPSService():
                     retval = True
                 except:
                     self.logger.error("__poweroff_image(%s): failed to destroy image, exception: %s" % (image_id,str(sys.exc_info()[1])))
-            connection.close()
         else:
             self.logger.warn("__poweroff_image(%s): failed to look up image configuration" % (image_id,))
+
         return retval
 
     def __destroy_image(self, image_id):
@@ -226,6 +213,7 @@ class DVMPSService():
             self.logger.warn("__destroy_image(%s): failed to look up image configuration" % (image_id,))
 
     def cleanup_expired_images(self):
+        connection = None
         self.sync_lock.acquire()
         try:
             dbc = DVMPSDAO.DatabaseConnection(database=self.database)
@@ -240,16 +228,22 @@ class DVMPSService():
                     time_before_expiry = image_record['creation_time'] + image_record['valid_for'] - timenow
                     if time_before_expiry < 0:
                         self.logger.info("cleanup_expired_images: found expired image %s" % (image_id,))
-                        self.__poweroff_image(image_id)
+                        if connection is None:
+                            connection = libvirt.open(None)
+                        self.__poweroff_image(image_id, connection=connection)
                         self.__destroy_image(image_id)
                         ali.deallocate(image_id)
                         if image_record.has_key('mac_id'):
                             mip.deallocate(image_record['mac_id'])
         except:
             self.sync_lock.release()
+            if connection is not None:
+                connection.close()
             raise
 
         self.sync_lock.release()
+        if connection is not None:
+            connection.close()
 
     def allocate_image(self, base_image, valid_for, priority, comment):
         if self.maintenance_mode:
@@ -269,6 +263,12 @@ class DVMPSService():
             self.logger.warn("allocate_image: no such base_image configured %s" % (base_image,))
             return { 'result': False, 'error': 'No such base image configured' }
 
+        try:
+            connection = libvirt.open(None)
+        except:
+            self.logger.warn("allocate_image: failed to open libvirt connection, exception: %s" % (str(sys.exc_info()[1]),))
+            return { 'result': False, 'error': 'Failed to open libvirt connection' }
+
         self.sync_lock.acquire()
         try:
             while True:
@@ -284,7 +284,7 @@ class DVMPSService():
                         low_image_conf = ali.get_configuration(low_image_id)
                         if low_image_conf is not None:
                             self.logger.info("allocate_image: destroying lower priority image %s" % (low_image_id,))
-                            self.__poweroff_image(low_image_id)
+                            self.__poweroff_image(low_image_id, connection=connection)
                             self.__destroy_image(low_image_id)
                             ali.deallocate(low_image_id)
                             if low_image_conf.has_key('mac_id'):
@@ -293,12 +293,14 @@ class DVMPSService():
                             break
         except:
             self.sync_lock.release()
+            connection.close()
             raise
 
         self.sync_lock.release()
 
         if mac_id is None:
             self.logger.warn("allocate_image: no free MAC/IP pairs")
+            connection.close()
             return { 'result': False, 'error': 'Could not allocate a free MAC address' }
 
         if ali.allocate(image_id, mac_id, base_image, valid_for=valid_for, comment=comment, priority=priority) == False:
@@ -306,10 +308,11 @@ class DVMPSService():
             self.sync_lock.acquire()
             mip.deallocate(mac_id)
             self.sync_lock.release()
+            connection.close()
             return { 'result': False, 'error': 'Failed to allocate image' }
 
         if self.__create_image(image_id) == True:
-            if self.__poweron_image(image_id) == True:
+            if self.__poweron_image(image_id, connection=connection) == True:
                 pass
             else:
                 self.logger.error("allocate_image: failed to launch virtual machine")
@@ -318,6 +321,7 @@ class DVMPSService():
                 self.sync_lock.acquire()
                 mip.deallocate(mac_id)
                 self.sync_lock.release()
+                connection.close()
                 return { 'result': False, 'error': 'Failed to launch virtual machine' }
         else:
             self.logger.error("allocate_image: failed to setup virtual machine")
@@ -325,10 +329,12 @@ class DVMPSService():
             self.sync_lock.acquire()
             mip.deallocate(mac_id)
             self.sync_lock.release()
+            connection.close()
             return { 'result': False, 'error': 'Failed to create backing image' }
 
         self.logger.info("allocate_image: successfully allocated image %s of type %s" % (image_id, base_image))
-        ret_val = self.__image_status(image_id)
+        ret_val = self.__image_status(image_id, connection=connection)
+        connection.close()
         return ret_val
 
     def deallocate_image(self, image_id):
@@ -338,10 +344,16 @@ class DVMPSService():
 
         ret_val = { 'result': False, 'error': 'No such image' }
 
+        try:
+            connection = libvirt.open(None)
+        except:
+            self.logger.warn("deallocate_image: failed to open libvirt connection, exception: %s" % (str(sys.exc_info()[1]),))
+            return { 'result': False, 'error': 'Failed to open libvirt connection' }
+
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
             self.logger.info("deallocate_image(%s): deallocating" % (image_id,))
-            self.__poweroff_image(image_id)
+            self.__poweroff_image(image_id, connection=connection)
             self.__destroy_image(image_id)
             ali.deallocate(image_id)
             if allocated_image_conf.has_key('mac_id'):
@@ -352,6 +364,7 @@ class DVMPSService():
         else:
             self.logger.warn("deallocate_image(%s): failed to look up image configuration" % (image_id,))
 
+        connection.close()
         return ret_val
 
     def revert_image(self, image_id):
@@ -360,20 +373,27 @@ class DVMPSService():
 
         ret_val = { 'result': False, 'error': 'No such image' }
 
+        try:
+            connection = libvirt.open(None)
+        except:
+            self.logger.warn("revert_image: failed to open libvirt connection, exception: %s" % (str(sys.exc_info()[1]),))
+            return { 'result': False, 'error': 'Failed to open libvirt connection' }
+
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
             self.logger.info("revert_image(%s): reverting" % (image_id,))
-            self.__poweroff_image(image_id)
+            self.__poweroff_image(image_id, connection=connection)
             self.__destroy_image(image_id)
             self.__create_image(image_id)
-            self.__poweron_image(image_id)
-            ret_val = self.__image_status(image_id)
+            self.__poweron_image(image_id, connection=connection)
+            ret_val = self.__image_status(image_id, connection=connection)
         else:
             self.logger.warn("revert_image(%s): failed to look up image configuration" % (image_id,))
 
+        connection.close()
         return ret_val
 
-    def __image_status(self, image_id):
+    def __image_status(self, image_id, connection=None):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
         mip = DVMPSDAO.MacIpPairs(dbc)
@@ -398,31 +418,45 @@ class DVMPSService():
                 comment = allocated_image_conf['comment']
             if allocated_image_conf.has_key('priority'):
                 priority = allocated_image_conf['priority']
-            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'priority': priority, 'comment': comment, 'vncport': self.__get_vnc_port(image_id) }
+            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'priority': priority, 'comment': comment, 'vncport': self.__get_vnc_port(image_id, connection=connection) }
         else:
             self.logger.warn("__image_status(%s): failed to look up image configuration" % (image_id,))
 
         return ret_val
 
     def image_status(self, image_id):
-        ret_val = self.__image_status(image_id)
+        try:
+            connection = libvirt.open(None)
+        except:
+            self.logger.warn("image_status: failed to open libvirt connection, exception: %s" % (str(sys.exc_info()[1]),))
+            return { 'result': False, 'error': 'Failed to open libvirt connection' }
+
+        ret_val = self.__image_status(image_id, connection=connection)
         if ret_val is None:
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
+        connection.close()
         return ret_val
 
     def poweroff_image(self, image_id):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
+        try:
+            connection = libvirt.open(None)
+        except:
+            self.logger.warn("poweroff_image: failed to open libvirt connection, exception: %s" % (str(sys.exc_info()[1]),))
+            return { 'result': False, 'error': 'Failed to open libvirt connection' }
+
         ret_val = { 'result': False, 'error': 'no such image' }
 
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
-            self.__poweroff_image(image_id)
+            self.__poweroff_image(image_id, connection=connection)
             ret_val = { 'result': True, 'image_id': image_id }
         else:
             self.logger.warn("poweroff_image(%s): failed to look up image configuration" % (image_id,))
 
+        connection.close()
         return ret_val
 
     def poweron_image(self, image_id):
@@ -431,13 +465,20 @@ class DVMPSService():
 
         ret_val = { 'result': False, 'error': 'no such image' }
 
+        try:
+            connection = libvirt.open(None)
+        except:
+            self.logger.warn("poweron_image: failed to open libvirt connection, exception: %s" % (str(sys.exc_info()[1]),))
+            return { 'result': False, 'error': 'Failed to open libvirt connection' }
+
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
-            self.__poweron_image(image_id)
-            ret_val = self.__image_status(image_id)
+            self.__poweron_image(image_id, connection=connection)
+            ret_val = self.__image_status(image_id, connection=connection)
         else:
             self.logger.warn("poweron_image(%s): failed to look up image configuration" % (image_id,))
 
+        connection.close()
         return ret_val
 
     def status(self):
@@ -457,10 +498,18 @@ class DVMPSService():
 
         images = ali.get_images()
         image_statuses = []
+
+        try:
+            connection = libvirt.open(None)
+        except:
+            self.logger.warn("running_images: failed to open libvirt connection, exception: %s" % (str(sys.exc_info()[1]),))
+            return { 'result': False, 'error': 'Failed to open libvirt connection' }
+
         for image in images:
-            image_status = self.__image_status(image)
+            image_status = self.__image_status(image, connection=connection)
             if image_status != None:
                 image_statuses.append(image_status)
+        connection.close()
         ret_val = { 'result': True, 'running_images': image_statuses }
         return ret_val
 
