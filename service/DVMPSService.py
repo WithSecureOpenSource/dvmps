@@ -163,10 +163,10 @@ class DVMPSService():
             fh.close()
 
             dom = self.__poweron_image_try(image_id, xml_spec, track=3)
-            if dom is None:
+            if dom == False:
                 self.logger.warn("__poweron_image(%s): failed once, retrying" % (image_id,))
                 dom = self.__poweron_image_try(image_id, xml_spec, track=3)
-            if dom is not None:
+            if dom == False:
                 retval = True
         else:
             self.logger.warn("__poweron_image(%s): failed to look up image configuration" % (image_id,))
