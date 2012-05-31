@@ -31,6 +31,10 @@ DVMPS_PLACEMENT_AGENT_PIDFILE=$DVMPS_RUN_PATH/dvmps-pa.pid
 test -x $PYTHON || exit 0
 test -f $DVMPS_SERVER || exit 0
 
+if test -f /etc/default/dvmps; then
+    . /etc/default/dvmps
+fi
+
 . /lib/lsb/init-functions
 
 prepare_system() {

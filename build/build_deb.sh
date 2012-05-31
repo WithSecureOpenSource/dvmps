@@ -24,6 +24,7 @@ install -d build_deb/etc/cron.hourly
 install -d build_deb/etc/cron.d
 install -d build_deb/etc/init.d
 install -d build_deb/var/opt/dvmps/run
+install -d build_deb/etc/default
 
 install -m 0644 $2/service/DVMPSCleanup.py build_deb/opt/dvmps/bin/
 install -m 0644 $2/service/DVMPSClient.py build_deb/opt/dvmps/bin/
@@ -65,6 +66,7 @@ install -m 0644 $2/misc/cron.d/dvmps_cleanup build_deb/etc/cron.d/
 install -m 0644 $2/misc/cron.d/healthcheck build_deb/etc/cron.d/
 
 install -m 0755 $2/misc/dvmps.init build_deb/etc/init.d/dvmps
+install -m 0644 $2/misc/dvmps.defaults build_deb/etc/default/dvmps
 
 cat > build_deb/DEBIAN/control <<EOF
 Package: dvmps
