@@ -60,6 +60,7 @@ install -m 0644 $2/misc/munin/dvmps_dirsizes build_deb/opt/dvmps/extra/munin/
 install -m 0644 $2/misc/munin/dvmps_priorities build_deb/opt/dvmps/extra/munin/
 install -m 0644 $2/misc/munin/dvmps_priorities_pct build_deb/opt/dvmps/extra/munin/
 install -m 0644 $2/misc/munin/dvmps_types build_deb/opt/dvmps/extra/munin/
+install -m 0644 $2/misc/munin/dvmps_clonerate build_deb/opt/dvmps/extra/munin/
 
 install -m 0644 $2/misc/cron.hourly/ntpdate build_deb/etc/cron.hourly/
 install -m 0644 $2/misc/cron.d/dvmps_cleanup build_deb/etc/cron.d/
