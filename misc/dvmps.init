@@ -50,7 +50,7 @@ prepare_system() {
 
 start_server() {
     OPTS="-f $DVMPS_SOCKET -d $DVMPS_DATABASE -l $DVMPS_LOGFILE"
-    PA_OPTS="-l $DVMPS_PLACEMENT_AGENT_LOGFILE"
+    PA_OPTS="-l $DVMPS_PLACEMENT_AGENT_LOGFILE -i $DVMPS_CLUSTER"
     start-stop-daemon --start --quiet --pidfile $DVMPS_PIDFILE \
         --make-pidfile --background \
         --startas $PYTHON -- $DVMPS_SERVER $OPTS || true

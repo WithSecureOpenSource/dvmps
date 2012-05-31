@@ -13,7 +13,7 @@ logger = logging.getLogger('dvmps-pa')
 received_node_scores = {}
 
 __appname__ = "dvmps-placement-agent"
-__usage__ = "%prog [-l <logfile>]"
+__usage__ = "%prog [-i <clusterid>] [-l <logfile>] [-p <port>]"
 __version__ = "1.0"
 __author__ = "F-Secure Corporation"
 __doc__ = "Dynamic Virtual Machine Provisioning Service - Placement Agent"
@@ -25,8 +25,10 @@ class UDPHandler(SocketServer.BaseRequestHandler):
         except:
             logger.warn("non-json data from %s" % self.client_address[0])
             return
-        if type(node_data).__name__ != 'dict' or not node_data.has_key('type') or node_data['type'] != 'dvmps_node_update_v2' or not node_data.has_key('image_scores'):
+        if type(node_data).__name__ != 'dict' or not node_data.has_key('type') or node_data['type'] != 'dvmps_node_update_v2' or not node_data.has_key('image_scores') or not node_data.has_key('cluster_id'):
             logger.warn("Data from %s wasn't of the correct type, or was missing mandatory fields" % self.client_address[0])
+            return
+        if self.server.cluster_id != node_data['cluster_id']:
             return
         node_scores = {}
         for candidate in node_data['image_scores']:
@@ -46,7 +48,7 @@ class UDPHandler(SocketServer.BaseRequestHandler):
         node_image_keys = node_scores.keys()
         logger.info("received info successful for %s, %d types" % (self.client_address[0], len(node_image_keys)))
 
-def send_local_data(broadcast_port):
+def send_local_data(broadcast_port, cluster_id):
     try:
         opener = urllib2.urlopen('http://localhost/get_node_images')
     except:
@@ -90,7 +92,7 @@ def send_local_data(broadcast_port):
     for image_name in image_names:
         image_scores.append({'base_image_name':image_name, 'score': 2 * images[image_name] - total_images - 2 * load_penalty})
 
-    out_data = {'type':'dvmps_node_update_v2','image_scores':image_scores}
+    out_data = {'type':'dvmps_node_update_v2', 'cluster_id':cluster_id, 'image_scores':image_scores}
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -149,9 +151,10 @@ def calculate_and_publish_placement_strategy():
     if not reply.has_key('result') or reply['result'] != True:
         logger.error("Local node reported failure in storing placement data")
 
-def run(broadcast_port):
+def run(broadcast_port, cluster_id):
     server = SocketServer.UDPServer(("0.0.0.0", broadcast_port), UDPHandler)
     server.timeout = 1
+    server.cluster_id = cluster_id
     last_updated_timestamp = 0
     while True:
         perform_local_update = False
@@ -160,7 +163,7 @@ def run(broadcast_port):
             perform_local_update = True
             last_updated_timestamp = now
         if perform_local_update == True:
-            send_local_data(broadcast_port)
+            send_local_data(broadcast_port, cluster_id)
         server.handle_request()
         if perform_local_update == True:
             calculate_and_publish_placement_strategy()
@@ -169,6 +172,7 @@ if __name__ == "__main__":
     p = optparse.OptionParser(description=__doc__, version=__version__)
     p.set_usage(__usage__)
     p.add_option("-l", dest="logfile", help="write log in file")
+    p.add_option("-i", dest="cluster_id", help="cluster id", default="default")
     p.add_option("-p", dest="broadcast_port", type="int", default=80, help="port used for broadcast messages")
     opt, args = p.parse_args(sys.argv)
 
@@ -180,4 +184,4 @@ if __name__ == "__main__":
         root_logger.addHandler(rotating_handler)
         root_logger.setLevel(logging.WARN)
 
-    run(opt.broadcast_port)
+    run(opt.broadcast_port, opt.cluster_id)
