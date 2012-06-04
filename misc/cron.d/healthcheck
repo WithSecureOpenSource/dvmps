@@ -4,5 +4,7 @@
 
 MAILTO=root
 
-*/10 * * * *	root	python /opt/dvmps/bin/healthcheck.py
+# FIXME: fix script to read list of cluster hosts from some common configuration file created
+#        in setup - debian installation pkg is not used only on GTN cluster
+#*/10 * * * *	root	python /opt/dvmps/bin/healthcheck.py
 

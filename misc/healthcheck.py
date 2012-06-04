@@ -28,9 +28,9 @@ def test_libvirt():
     return True        
 
 if __name__ == '__main__':
+    # FIXME: read list of cluster hosts from some common configuration file created in setup - debian installation pkg is not used only on GTN cluster
     alive = test_connections(['dvmps01.infra.gtn','dvmps02.infra.gtn','dvmps03.infra.gtn','dvmps04.infra.gtn','dvmps05.infra.gtn'], mustpass=2)
     if alive == True:
 	alive = test_libvirt()
     if alive == False:
         (rc,out,err) = run_command(['/sbin/shutdown','-r','5','connection lost to GW'])
-
