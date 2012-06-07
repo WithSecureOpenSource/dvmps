@@ -79,4 +79,4 @@ Description: Dynamic virtual machine provisioning service
  Dynamic virtual machine provisioning service
 EOF
 
-dpkg -b build_deb dvmps_$1.deb
+fakeroot dpkg -b build_deb dvmps_$1.deb
