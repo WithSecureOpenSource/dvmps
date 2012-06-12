@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import libvirt
 import uuid
 import DVMPSDAO

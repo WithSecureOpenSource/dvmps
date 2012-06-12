@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 from wsgiref.simple_server import make_server
 import DVMPSWSGI
 

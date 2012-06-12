@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import DVMPSService
 import json
 import os.path
