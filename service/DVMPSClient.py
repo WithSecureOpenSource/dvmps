@@ -16,6 +16,15 @@ def __build_url(options, command, parameters = None):
     url = urlparse.urlunsplit((scheme, netloc, command, query_string, ''))
     return url
 
+def create(options, base_image, expires, priority, comment):
+    data = { 'base_image': base_image, 'expires': expires, 'priority': priority, 'comment': comment }
+    data_str = json.dumps(data)
+    url = __build_url(options, 'create')
+    o = urllib2.urlopen(url, data_str)
+    rep_str = o.read()
+    rep = json.loads(rep_str)
+    return rep
+
 def allocate(options, base_image, expires, priority, comment):
     data = { 'base_image': base_image, 'expires': expires, 'priority': priority, 'comment': comment }
     data_str = json.dumps(data)
@@ -111,7 +120,7 @@ def maintenance(options, message):
 
 def usage():
     print "Usage: %s [<options>] <command> <arguments..>" % sys.argv[0]
-    print " %s allocate <base_image>" % sys.argv[0]
+    print " %s create <base_image>" % sys.argv[0]
     print " %s deallocate <image_id>" % sys.argv[0]
     print " %s revert <image_id>" % sys.argv[0]
     print " %s poweroff <image_id>" % sys.argv[0]
@@ -168,7 +177,10 @@ if __name__ == '__main__':
         usage()
         sys.exit(-1)
 
-    if command == 'allocate':
+    if command == 'create':
+        ret = create(options, args[1], options.validfor, options.priority, options.comment)
+        print json.dumps(ret, indent=4)
+    elif command == 'allocate':
         ret = allocate(options, args[1], options.validfor, options.priority, options.comment)
         print json.dumps(ret, indent=4)
     elif command == 'deallocate':
