@@ -19,7 +19,6 @@ class DVMPSService():
         self.maintenance_mode = False
         self.maintenance_message = ""
         self.node_placement_data = None
-        self.sync_lock = threading.Lock()
 
     def __cloned_disk_image_path(self, image_id):
         return '/var/lib/libvirt/images/active_dynamic/%s.qcow2' % image_id
@@ -216,7 +215,7 @@ class DVMPSService():
 
     def cleanup_expired_images(self):
         connection = None
-        self.sync_lock.acquire()
+
         try:
             dbc = DVMPSDAO.DatabaseConnection(database=self.database)
             ali = DVMPSDAO.AllocatedImages(dbc)
@@ -238,12 +237,10 @@ class DVMPSService():
                         if image_record.has_key('mac_id'):
                             mip.deallocate(image_record['mac_id'])
         except:
-            self.sync_lock.release()
             if connection is not None:
                 connection.close()
             raise
 
-        self.sync_lock.release()
         if connection is not None:
             connection.close()
 
@@ -275,10 +272,9 @@ class DVMPSService():
                 self.logger.warn("create_instance: failed to open libvirt connection, exception: %s" % (str(sys.exc_info()[1]),))
                 return { 'result': False, 'error': 'Failed to open libvirt connection' }
 
-        self.sync_lock.acquire()
         try:
             while True:
-                mac_id = mip.allocate(valid_for=valid_for)
+                mac_id = mip.allocate()
                 if mac_id is not None:
                     break
                 else:
@@ -298,12 +294,9 @@ class DVMPSService():
                         else:
                             break
         except:
-            self.sync_lock.release()
             if connection_cleanup == True:
                 connection.close()
             return { 'result': False, 'error': 'Exception during mac allocation' }
-
-        self.sync_lock.release()
 
         if mac_id is None:
             self.logger.warn("create_instance: no free MAC/IP pairs")
@@ -313,9 +306,7 @@ class DVMPSService():
 
         if ali.allocate(image_id, mac_id, base_image, valid_for=valid_for, comment=comment, priority=priority) == False:
             self.logger.error("create_instance: failed to allocate image (DAO)")
-            self.sync_lock.acquire()
             mip.deallocate(mac_id)
-            self.sync_lock.release()
             if connection_cleanup == True:
                 connection.close()
             return { 'result': False, 'error': 'Failed to allocate image' }
@@ -323,9 +314,7 @@ class DVMPSService():
         if self.__create_image(image_id) == False:
             self.logger.error("create_instance: failed to setup virtual machine")
             ali.deallocate(image_id)
-            self.sync_lock.acquire()
             mip.deallocate(mac_id)
-            self.sync_lock.release()
             if connection_cleanup == True:
                 connection.close()
             return { 'result': False, 'error': 'Failed to create backing image' }
@@ -392,9 +381,7 @@ class DVMPSService():
             self.__destroy_image(image_id)
             ali.deallocate(image_id)
             if allocated_image_conf.has_key('mac_id'):
-                self.sync_lock.acquire()
                 mip.deallocate(allocated_image_conf['mac_id'])
-                self.sync_lock.release()
             ret_val = { 'result': True, 'image_id': image_id, 'status': 'not-allocated' }
         else:
             self.logger.warn("deallocate_image(%s): failed to look up image configuration" % (image_id,))

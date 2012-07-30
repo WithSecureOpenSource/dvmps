@@ -2,6 +2,8 @@
 
 import pgdb
 import time
+import random
+import os
 
 class DatabaseConnection:
     def __init__(self, database=None, host=None, user=None, password=None):
@@ -16,50 +18,32 @@ class MacIpPairs:
     def __init__(self, dbaseconnection):
         self.dbc = dbaseconnection
 
-    def allocate(self, valid_for=3600):
-        ret = None
-        timenow = int(time.time())
+    def allocate(self):
         cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("select id, mac, ip, allocated, allocation_time from mac_ip_pairs where allocated is false order by allocation_time")
+        cursor.execute("select id, mac, ip from mac_ip_pairs")
         free_pairs = cursor.fetchall()
-        for pair in free_pairs:
-            cursor.execute("update mac_ip_pairs set allocated = true, allocation_time = %d, valid_for = %d where id = %d and allocated is false and allocation_time = %d", (timenow, valid_for, pair[0], pair[4]))
-            if cursor.rowcount > 0:
-                self.dbc.dbconnection.commit()
-                ret = pair[0]
-                break
-            self.dbc.dbconnection.rollback()
         cursor.close()
-        return ret
+        random.shuffle(free_pairs)
+        for pair in free_pairs:
+            try:
+                fn = os.path.join('/var/lib/libvirt/ip_mac_allocations', pair[1].replace(':', '-'))
+                fh = os.open(fn, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+                os.close(fh)
+                return pair[0]
+            except:
+                pass
+
+        return None
 
     def deallocate(self, mac_id):
-        timenow = int(time.time())
-        cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("update mac_ip_pairs set allocated = false, allocation_time = %d where id = %d and allocated is true", (timenow, mac_id))
-        self.dbc.dbconnection.commit()
-        cursor.close()
-
-    def renew(self, mac_id, valid_for=3600):
-        result = False
-        timenow = int(time.time())
-        cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("update mac_ip_pairs set allocation_time = %d, valid_for = %d where id = %d and allocated is true", (timenow, valid_for, mac_id))
-        if cursor.rowcount > 0:
-            result = True
-        self.dbc.dbconnection.commit()
-        cursor.close()
-        return result
-
-    def cleanup(self):
-        timenow = int(time.time())
-        cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("select id, mac, ip, allocated, allocation_time, valid_for from mac_ip_pairs where allocated is true")
-        allocated_pairs = cursor.fetchall()
-        for pair in allocated_pairs:
-            if pair[3] + pair[4] > timenow:
-                cursor.execute("update mac_ip_pairs set allocated = false, allocation_time = %d where id = %d and allocated is true and allocation_time = %d", (timenow, pair[0], pair[4]))
-                self.dbc.dbconnection.commit()
-        cursor.close()
+        mac = self.get_mac_for_mac_id(mac_id)
+        if mac is None:
+            return
+        fn = os.path.join('/var/lib/libvirt/ip_mac_allocations', mac.replace(':', '-'))
+        try:
+            os.unlink(fn)
+        except:
+            pass
 
     def get_mac_for_mac_id(self, mac_id):
         mac = None

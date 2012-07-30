@@ -5,9 +5,6 @@ create table mac_ip_pairs (
         id serial primary key,
         mac text unique not null,
         ip text unique not null,
-        allocated boolean,
-        allocation_time integer not null,
-        valid_for integer not null
         );
 
 create table allocated (
