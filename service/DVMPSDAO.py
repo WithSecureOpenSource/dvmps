@@ -4,6 +4,8 @@ import pgdb
 import time
 import random
 import os
+import logging
+import sys
 
 class DatabaseConnection:
     def __init__(self, database=None, host=None, user=None, password=None):
@@ -17,6 +19,7 @@ class DatabaseConnection:
 class MacIpPairs:
     def __init__(self, dbaseconnection):
         self.dbc = dbaseconnection
+        self.logger = logging.getLogger('dvmps')
 
     def allocate(self):
         cursor = self.dbc.dbconnection.cursor()
@@ -30,20 +33,24 @@ class MacIpPairs:
                 fh = os.open(fn, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
                 os.close(fh)
                 return pair[0]
+            except OSError, e:
+                if e.errno != 17:
+                    self.logger.error("MacIpPairsDAO: registering lock file '%s' failed with errno %d, message '%s'" % (e.errno, e.strerror))
             except:
-                pass
+                self.logger.error("MacIpPairsDAO: registering lock file '%s' failed with exception: '%r'" % (sys.exc_info()[1]))
 
         return None
 
     def deallocate(self, mac_id):
         mac = self.get_mac_for_mac_id(mac_id)
         if mac is None:
+            self.logger.error("MacIpPairsDAO: cannot map_id %d to mac address" % mac_id)
             return
         fn = os.path.join('/var/lib/libvirt/ip_mac_allocations', mac.replace(':', '-'))
         try:
             os.unlink(fn)
         except:
-            pass
+            self.logger.warn("MacIpPairsDAO: deleting lock file '%s' failed with exception: '%r'" % (sys.exc_info()[1]))
 
     def get_mac_for_mac_id(self, mac_id):
         mac = None
@@ -88,6 +95,7 @@ class MacIpPairs:
 class AllocatedImages:
     def __init__(self, dbaseconnection):
         self.dbc = dbaseconnection
+        self.logger = logging.getLogger('dvmps')
 
     def allocate(self, instance_name, mac_id, base_image_name, valid_for=3600, priority=50, comment=''):
         result = False
