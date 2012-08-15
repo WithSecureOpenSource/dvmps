@@ -161,7 +161,7 @@ class DVMPSService():
             self.logger.warn("__poweron_image(%s): failed to look up image configuration" % (image_id,))
         return retval
 
-    def __poweroff_image(self, image_id, connection=None):
+    def __poweroff_image(self, image_id, connection=None, strict_mode=True):
         retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
@@ -173,14 +173,25 @@ class DVMPSService():
                 dom = connection.lookupByName(image_id)
             except:
                 self.logger.warn("__poweroff_image(%s): image not found, exception: %s" % (image_id,str(sys.exc_info()[1])))
+                if not strict_mode:
+                    retval = True
 
             if dom is not None:
                 try:
                     dom.destroy()
                     self.logger.info("__poweroff_image(%s): image successfully destroyed" % (image_id,))
-                    retval = True
                 except:
                     self.logger.error("__poweroff_image(%s): failed to destroy image, exception: %s" % (image_id,str(sys.exc_info()[1])))
+                else:
+                    for _ in xrange(2):
+                        try:
+                            dom = connection.lookupByName(image_id)
+                        except:
+                            retval = True
+                            break
+                        else:
+                            self.logger.error("___poweroff_image(%s): image did not yet disappear" % image_id)
+                            time.sleep(5)
         else:
             self.logger.warn("__poweroff_image(%s): failed to look up image configuration" % (image_id,))
 
@@ -377,7 +388,8 @@ class DVMPSService():
         allocated_image_conf = ali.get_configuration(image_id)
         if allocated_image_conf is not None:
             self.logger.info("deallocate_image(%s): deallocating" % (image_id,))
-            self.__poweroff_image(image_id, connection=connection)
+            if not self.__poweroff_image(image_id, connection=connection, strict_mode=False):
+                return { 'result': False, 'error': 'Unable to shutdown the image. Leaving things unremoved, please investigate' }
             self.__destroy_image(image_id)
             ali.deallocate(image_id)
             if allocated_image_conf.has_key('mac_id'):
