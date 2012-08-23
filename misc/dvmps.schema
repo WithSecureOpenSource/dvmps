@@ -15,5 +15,6 @@ create table allocated (
         creation_time integer not null,
         valid_for integer not null,
         priority integer not null,
-        comment text
+        comment text,
+        unique (mac_id)
         );

@@ -21,7 +21,7 @@ class MacIpPairs:
         self.dbc = dbaseconnection
         self.logger = logging.getLogger('dvmps')
 
-    def allocate(self):
+    def allocate(self, image_id):
         cursor = self.dbc.dbconnection.cursor()
         cursor.execute("select id, mac, ip from mac_ip_pairs")
         free_pairs = cursor.fetchall()
@@ -31,13 +31,14 @@ class MacIpPairs:
             try:
                 fn = os.path.join('/var/lib/libvirt/ip_mac_allocations', pair[1].replace(':', '-'))
                 fh = os.open(fn, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+                os.write(fh, str(image_id))
                 os.close(fh)
                 return pair[0]
             except OSError, e:
                 if e.errno != 17:
                     self.logger.error("MacIpPairsDAO: registering lock file '%s' failed with errno %d, message '%s'" % (e.errno, e.strerror))
             except:
-                self.logger.error("MacIpPairsDAO: registering lock file '%s' failed with exception: '%r'" % (sys.exc_info()[1]))
+                self.logger.error("MacIpPairsDAO: registering lock file '%s' failed with exception: '%r'" % (fn, sys.exc_info()[1]))
 
         return None
 

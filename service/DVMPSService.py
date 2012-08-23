@@ -161,41 +161,45 @@ class DVMPSService():
             self.logger.warn("__poweron_image(%s): failed to look up image configuration" % (image_id,))
         return retval
 
+    def __get_images(self, connection):
+        e = None
+        for _ in xrange(2):
+            try:
+                return [connection.lookupByID(id).name() for id in connection.listDomainsID()]
+            except Exception, e:
+                pass
+        if e:
+            raise e
+
     def __poweroff_image(self, image_id, connection=None, strict_mode=True):
         retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
 
         allocated_image_conf = ali.get_configuration(image_id)
-        if allocated_image_conf is not None:
-            dom = None
-            try:
-                dom = connection.lookupByName(image_id)
-            except:
-                self.logger.warn("__poweroff_image(%s): image not found, exception: %s" % (image_id,str(sys.exc_info()[1])))
-                if not strict_mode:
-                    retval = True
-
-            if dom is not None:
-                try:
-                    dom.destroy()
-                    self.logger.info("__poweroff_image(%s): image successfully destroyed" % (image_id,))
-                except:
-                    self.logger.error("__poweroff_image(%s): failed to destroy image, exception: %s" % (image_id,str(sys.exc_info()[1])))
-                else:
-                    for _ in xrange(2):
+        try:
+            if allocated_image_conf is not None:
+                for _ in xrange(2):
+                    if image_id in self.__get_images(connection):
                         try:
                             dom = connection.lookupByName(image_id)
-                        except:
-                            retval = True
-                            break
-                        else:
-                            self.logger.error("___poweroff_image(%s): image did not yet disappear" % image_id)
+                            dom.destroy()
                             time.sleep(5)
-        else:
-            self.logger.warn("__poweroff_image(%s): failed to look up image configuration" % (image_id,))
-
-        return retval
+                        except Exception, e:
+                            if "No such image" in str(e):
+                                return True
+                    else:
+                        return True
+                if not image_id in self.__get_images(connection):
+                    return True
+                else:
+                    return False
+            else:
+                self.logger.warn("__poweroff_image(%s): failed to look up image configuration" % (image_id,))
+                return False
+        except Exception, e:
+            self.logger.error("__poweroff_image(%s): error %s" % (image_id, str(e)))
+            return False
 
     def __destroy_image(self, image_id):
         retval = False
@@ -237,8 +241,11 @@ class DVMPSService():
             for image_id in image_ids:
                 image_record = ali.get_configuration(image_id)
                 if image_record is not None and image_record.has_key('creation_time') and image_record.has_key('valid_for'):
+                    with open("/proc/uptime") as f:
+                        booted, _ = f.read().split()
+                    booted = int(float(booted))
                     time_before_expiry = image_record['creation_time'] + image_record['valid_for'] - timenow
-                    if time_before_expiry < 0:
+                    if time_before_expiry < 0 or image_record['creation_time'] < booted:
                         self.logger.info("cleanup_expired_images: found expired image %s" % (image_id,))
                         if connection is None:
                             connection = libvirt.open(None)
@@ -264,7 +271,7 @@ class DVMPSService():
         ali = DVMPSDAO.AllocatedImages(dbc)
         mip = DVMPSDAO.MacIpPairs(dbc)
 
-        if image_id is None:
+        if not image_id:
             image_id = str(uuid.uuid4())
 
         self.logger.info("create_instance: request to allocate image of type %s" % (base_image,))
@@ -285,7 +292,7 @@ class DVMPSService():
 
         try:
             while True:
-                mac_id = mip.allocate()
+                mac_id = mip.allocate(image_id)
                 if mac_id is not None:
                     break
                 else:
@@ -304,7 +311,8 @@ class DVMPSService():
                                 mip.deallocate(low_image_conf['mac_id'])
                         else:
                             break
-        except:
+        except Exception, e:
+            self.log.error("create_instance: %s" % str(e))
             if connection_cleanup == True:
                 connection.close()
             return { 'result': False, 'error': 'Exception during mac allocation' }
@@ -345,10 +353,9 @@ class DVMPSService():
             except:
                 self.logger.warn("allocate_image: failed to open libvirt connection, exception: %s" % (str(sys.exc_info()[1]),))
                 return { 'result': False, 'error': 'Failed to open libvirt connection' }
-
-        if image_id is None:
+        # mandatory duplication so deallocation and poweron work
+        if not image_id:
             image_id = str(uuid.uuid4())
-
         ret_val = self.create_instance(base_image, valid_for, priority, comment, image_id=image_id, connection=connection)
 
         if ret_val['result'] == False:

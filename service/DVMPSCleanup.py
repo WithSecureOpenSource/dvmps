@@ -34,10 +34,8 @@ def cleanup_logs():
 def cleanup_libvirt():
     connection = libvirt.open(None)
     if connection is not None:
-        ids = connection.listDomainsID()
-        for id in ids:
-            dom = connection.lookupByID(id)
-            name = dom.name()
+        names = [connection.lookupByID(id).name() for id in connection.listDomainsID()]
+        for name in names:
             try:
                  u = uuid.UUID(name)
             except:
@@ -45,7 +43,11 @@ def cleanup_libvirt():
 
             if ali.get_configuration(name) == None:
                  print "vm: %s not found in active set" % name
-                 dom.destroy()
+                 try:
+                     dom = connection.lookupByName(name)
+                     dom.destroy()
+                 except Exception, e:
+                     print str(e)
             else:
                  pass
     else:
@@ -54,9 +56,10 @@ def cleanup_libvirt():
 def cleanup_images():
     images = os.listdir('/var/lib/libvirt/images/active_dynamic/')
     for name in images:
-        if len(name) != 40 or name[-4:] != '.img':
+        name, _, ending = name.partition(".")
+        if len(name) != 36 or not ending in ('qcow2', 'img'):
             continue
-        name = name[:-4]
+
         try:
             u = uuid.UUID(name)
         except:
@@ -64,7 +67,7 @@ def cleanup_images():
 
         if ali.get_configuration(name) == None:
             print "image: %s not found in active set" % name
-            os.unlink('/var/lib/libvirt/images/active_dynamic/%s.img' % name)
+            os.unlink('/var/lib/libvirt/images/active_dynamic/%s.%s' % (name, ending))
         else:
             pass
 
@@ -102,10 +105,28 @@ def cleanup_monitors():
         else:
             pass
 
+def cleanup_mac_ip_bindings():
+    bindings = os.listdir('/var/lib/libvirt/ip_mac_allocations/')
+    for binding in bindings:
+        image_id = ""
+        if time.time() - os.stat('/var/lib/libvirt/ip_mac_allocations/' + binding).st_ctime < 5:
+            print "Skipping file newer than 5 seconds to give grace period for writing"
+        with open('/var/lib/libvirt/ip_mac_allocations/' + binding) as f:
+            image_id = f.read()
+        try:
+            u = uuid.UUID(image_id)
+        except:
+            continue
+
+        if ali.get_configuration(image_id) == None:
+            print "ip_mac_binding: %s not found in active set, claimed to be owned by %s" % (binding, image_id)
+            os.unlink('/var/lib/libvirt/ip_mac_allocations/%s' % binding)
+
 if __name__ == "__main__":
     cleanup_logs()
     cleanup_libvirt()
     cleanup_images()
     cleanup_xmls()
     cleanup_monitors()
+    cleanup_mac_ip_bindings()
 
