@@ -44,17 +44,21 @@ option time-servers $TIME_SERVERS;
 
 default-lease-time 600;
 max-lease-time 600;
+boot-unknown-clients false;
 
 log-facility local7;
 
 subnet $SUBNET netmask $NETMASK {
   range $START_IP $END_IP;
   authoritative;
-}
 
 EOF
 
 python $DHCPDCONF_GEN $START_IP $END_IP >> $TEMP_DHCPDCONF
+
+cat >> $TEMP_DHCPDCONF <<EOF
+}
+EOF
 
 # output generated file
 
