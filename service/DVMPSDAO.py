@@ -51,7 +51,7 @@ class MacIpPairs:
         try:
             os.unlink(fn)
         except:
-            self.logger.warn("MacIpPairsDAO: deleting lock file '%s' failed with exception: '%r'" % (sys.exc_info()[1]))
+            self.logger.warn("MacIpPairsDAO: deleting lock file '%s' failed with exception: '%r'" % (fn, sys.exc_info()[1]))
 
     def get_mac_for_mac_id(self, mac_id):
         mac = None
