@@ -17,4 +17,4 @@ if __name__ == '__main__':
 
     for ip in ipv4addr.ipv4addr_range(sys.argv[1], sys.argv[2]):
         mac_addr = map(lambda n: "%02x" % ord(n), socket.inet_aton(ip)[-3:])
-        print "insert into mac_ip_pairs (mac, ip, allocated, allocation_time, valid_for) values ('00:aa:ee:%s', '%s', false, 0, 0);" % (":".join(mac_addr), ip)
+        print "insert into mac_ip_pairs (mac, ip) values ('00:aa:ee:%s', '%s');" % (":".join(mac_addr), ip)

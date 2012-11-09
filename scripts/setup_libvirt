@@ -4,7 +4,7 @@
 #
 
 DEFAULT_BASEDIR=/var/lib/libvirt
-LIBVIRT_DIRS="base_images images/active_dynamic images/base images/ISO qemu/active_dynamic qemu/dump qemu/static qemu/templates"
+LIBVIRT_DIRS="base_images images/active_dynamic images/base images/ISO qemu/active_dynamic qemu/dump qemu/static qemu/templates ip_mac_allocations"
 MTAB=/etc/mtab
 FSTAB=/etc/fstab
 FSTAB_BAK=/etc/fstab.bak

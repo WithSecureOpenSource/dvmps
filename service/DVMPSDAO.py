@@ -36,7 +36,7 @@ class MacIpPairs:
                 return pair[0]
             except OSError, e:
                 if e.errno != 17:
-                    self.logger.error("MacIpPairsDAO: registering lock file '%s' failed with errno %d, message '%s'" % (e.errno, e.strerror))
+                    self.logger.error("MacIpPairsDAO: registering lock file '%s' failed with errno %d, message '%s'" % (fn, e.errno, e.strerror))
             except:
                 self.logger.error("MacIpPairsDAO: registering lock file '%s' failed with exception: '%r'" % (fn, sys.exc_info()[1]))
 
