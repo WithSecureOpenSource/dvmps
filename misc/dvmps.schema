@@ -4,7 +4,7 @@ drop table mac_ip_pairs;
 create table mac_ip_pairs (
         id serial primary key,
         mac text unique not null,
-        ip text unique not null,
+        ip text unique not null
         );
 
 create table allocated (
