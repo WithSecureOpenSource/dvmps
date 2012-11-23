@@ -7,8 +7,8 @@ from optparse import OptionParser
 import urlparse
 import urllib
 
-def __build_url(options, command, parameters = None):
-    (scheme, netloc, path, query, fragment) = urlparse.urlsplit(options.serverurl)
+def __build_url(serverurl, command, parameters = None):
+    (scheme, netloc, path, query, fragment) = urlparse.urlsplit(serverurl)
     if parameters is not None:
         query_string = urllib.urlencode(parameters)
     else:
@@ -16,103 +16,103 @@ def __build_url(options, command, parameters = None):
     url = urlparse.urlunsplit((scheme, netloc, command, query_string, ''))
     return url
 
-def create(options, base_image, expires, priority, comment):
+def create(serverurl, base_image, expires, priority, comment):
     data = { 'base_image': base_image, 'expires': expires, 'priority': priority, 'comment': comment }
     data_str = json.dumps(data)
-    url = __build_url(options, 'create')
+    url = __build_url(serverurl, 'create')
     o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def allocate(options, base_image, expires, priority, comment):
+def allocate(serverurl, base_image, expires, priority, comment):
     data = { 'base_image': base_image, 'expires': expires, 'priority': priority, 'comment': comment }
     data_str = json.dumps(data)
-    url = __build_url(options, 'allocate')
+    url = __build_url(serverurl, 'allocate')
     o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def deallocate(options, image_id):
+def deallocate(serverurl, image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
-    url = __build_url(options, 'deallocate')
+    url = __build_url(serverurl, 'deallocate')
     o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def revert(options, image_id):
+def revert(serverurl, image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
-    url = __build_url(options, 'revert')
+    url = __build_url(serverurl, 'revert')
     o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def poweroff(options, image_id):
+def poweroff(serverurl, image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
-    url = __build_url(options, 'poweroff')
+    url = __build_url(serverurl, 'poweroff')
     o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def poweron(options, image_id):
+def poweron(serverurl, image_id):
     data = { 'image_id': image_id }
     data_str = json.dumps(data)
-    url = __build_url(options, 'poweron')
+    url = __build_url(serverurl, 'poweron')
     o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def status(options, image_id):
+def status(serverurl, image_id):
     data = { 'image_id': image_id }
-    url = __build_url(options, 'status', data)
+    url = __build_url(serverurl, 'status', data)
     o = urllib2.urlopen(url)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def systemstatus(options):
-    url = __build_url(options, 'systemstatus')
+def systemstatus(serverurl):
+    url = __build_url(serverurl, 'systemstatus')
     o = urllib2.urlopen(url)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def running_images(options):
-    url = __build_url(options, 'running_images')
+def running_images(serverurl):
+    url = __build_url(serverurl, 'running_images')
     o = urllib2.urlopen(url)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def base_images(options):
-    url = __build_url(options, 'base_images')
+def base_images(serverurl):
+    url = __build_url(serverurl, 'base_images')
     o = urllib2.urlopen(url)
     rep_str = o.read()
     rep = json.loads(rep_str)
     return rep
 
-def show_image_addresses(options):
-    (scheme, host_add, path, query, fragment) = urlparse.urlsplit(options.serverurl)
-    images = running_images(options)
+def show_image_addresses(serverurl):
+    (scheme, host_add, path, query, fragment) = urlparse.urlsplit(serverurl)
+    images = running_images(serverurl)
     print "Image ID - IP Address - VNC Address"
     for image in images["running_images"]:
         print "%s - %s - %s:%s" % (image['image_id'], image["ip_addr"], host_add, image["vncport"])
 
-def maintenance(options, message):
+def maintenance(serverurl, message):
     if message == 'cancel':
         data = { 'maintenance': False}
     else:
         data = { 'maintenance': True, 'message': message }
     data_str = json.dumps(data)
-    url = __build_url(options, 'maintenance')
+    url = __build_url(serverurl, 'maintenance')
     o = urllib2.urlopen(url, data_str)
     rep_str = o.read()
     rep = json.loads(rep_str)
@@ -158,19 +158,19 @@ if __name__ == '__main__':
     command = args[0]
 
     if command == 'systemstatus':
-        ret = systemstatus(options)
+        ret = systemstatus(options.serverurl)
         print json.dumps(ret, indent=4)
         sys.exit(0)
     elif command == 'running_images':
-        ret = running_images(options)
+        ret = running_images(options.serverurl)
         print json.dumps(ret, indent=4)
         sys.exit(0)
     elif command == 'base_images':
-        ret = base_images(options)
+        ret = base_images(options.serverurl)
         print json.dumps(ret, indent=4)
         sys.exit(0)
     elif command == 'image_addresses':
-        show_image_addresses(options)
+        show_image_addresses(options.serverurl)
         sys.exit(0)
 
     if arglen < 2:
@@ -178,28 +178,28 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     if command == 'create':
-        ret = create(options, args[1], options.validfor, options.priority, options.comment)
+        ret = create(options.serverurl, args[1], options.validfor, options.priority, options.comment)
         print json.dumps(ret, indent=4)
     elif command == 'allocate':
-        ret = allocate(options, args[1], options.validfor, options.priority, options.comment)
+        ret = allocate(options.serverurl, args[1], options.validfor, options.priority, options.comment)
         print json.dumps(ret, indent=4)
     elif command == 'deallocate':
-        ret = deallocate(options, args[1])
+        ret = deallocate(options.serverurl, args[1])
         print json.dumps(ret, indent=4)
     elif command == 'revert':
-        ret = revert(options, args[1])
+        ret = revert(options.serverurl, args[1])
         print json.dumps(ret, indent=4)
     elif command == 'poweroff':
-        ret = poweroff(options, args[1])
+        ret = poweroff(options.serverurl, args[1])
         print json.dumps(ret, indent=4)
     elif command == 'poweron':
-        ret = poweron(options, args[1])
+        ret = poweron(options.serverurl, args[1])
         print json.dumps(ret, indent=4)
     elif command == 'status':
-        ret = status(options, args[1])
+        ret = status(options.serverurl, args[1])
         print json.dumps(ret, indent=4)
     elif command == 'maintenance':
-        ret = maintenance(options, args[1])
+        ret = maintenance(options.serverurl, args[1])
         print json.dumps(ret, indent=4)
     else:
         usage()
