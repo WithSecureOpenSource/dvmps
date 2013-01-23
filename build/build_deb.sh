@@ -62,7 +62,6 @@ install -m 0644 $2/misc/munin/dvmps_priorities_pct build_deb/opt/dvmps/extra/mun
 install -m 0644 $2/misc/munin/dvmps_types build_deb/opt/dvmps/extra/munin/
 install -m 0644 $2/misc/munin/dvmps_clonerate build_deb/opt/dvmps/extra/munin/
 
-install -m 0755 $2/misc/cron.hourly/ntpdate build_deb/etc/cron.hourly/
 install -m 0755 $2/misc/cron.d/dvmps_cleanup build_deb/etc/cron.d/
 install -m 0755 $2/misc/cron.d/healthcheck build_deb/etc/cron.d/
 
@@ -74,7 +73,7 @@ Package: dvmps
 Version: $1
 Architecture: all
 Maintainer: Heikki Nousiainen <heikki.nousiainen@f-secure.com>
-Depends: libvirt-bin, qemu-kvm, nginx, python-flup, python-libvirt, python-pygresql, postgresql, isc-dhcp-server, munin-node, ntpdate
+Depends: libvirt-bin, qemu-kvm, nginx, python-flup, python-libvirt, python-pygresql, postgresql, isc-dhcp-server, munin-node
 Description: Dynamic virtual machine provisioning service
  Dynamic virtual machine provisioning service
 EOF
