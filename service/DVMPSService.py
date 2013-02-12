@@ -12,6 +12,17 @@ import sys
 import random
 import threading
 
+domain_state_str = {
+    libvirt.VIR_DOMAIN_NOSTATE: 'no state',
+    libvirt.VIR_DOMAIN_RUNNING: 'running',
+    libvirt.VIR_DOMAIN_BLOCKED: 'blocked',
+    libvirt.VIR_DOMAIN_PAUSED: 'paused',
+    libvirt.VIR_DOMAIN_SHUTDOWN: 'in shutdown',
+    libvirt.VIR_DOMAIN_SHUTOFF: 'shut off',
+    libvirt.VIR_DOMAIN_CRASHED: 'crashed',
+    libvirt.VIR_DOMAIN_PMSUSPENDED: 'suspended'
+}
+
 class DVMPSService():
     def __init__(self, database=None):
         self.database = database
@@ -40,15 +51,21 @@ class DVMPSService():
         (sout,serr) = proc.communicate()
         return (proc.returncode, sout, serr)
 
-    def __get_vnc_port(self, image_id, connection=None):
-        port = None
+    def __get_domain_status(self, domain):
+        if not domain:
+            return "allocated"
 
-        try:
-            domain = connection.lookupByName(image_id)
-        except:
-            self.logger.warn("__get_vnc_port(%s): no such domain, exception: %s" % (image_id, str(sys.exc_info()[1])))
+        (state, reason) = domain.state(0)
+        if state == libvirt.VIR_DOMAIN_NOSTATE or state > libvirt.VIR_DOMAIN_PMSUSPENDED:
+            return "allocated"
+        else:
+            return domain_state_str[state]
+
+    def __get_vnc_port(self, image_id, domain):
+        if not domain:
             return None
 
+        port = None
         xmlspec = domain.XMLDesc(0)
         nodes = []
 
@@ -450,6 +467,14 @@ class DVMPSService():
             comment = None
             priority = 50
 
+            try:
+                domain = connection.lookupByName(image_id)
+            except:
+                domain = None
+                self.logger.warn("__image_status(%s): no such domain, exception: %s" % (image_id, str(sys.exc_info()[1])))
+            vnc_port = self.__get_vnc_port(image_id, domain)
+            status = self.__get_domain_status(domain)
+
             if allocated_image_conf.has_key('creation_time') and allocated_image_conf.has_key('valid_for'):
                 valid_for = allocated_image_conf['creation_time'] + allocated_image_conf['valid_for'] - int(time.time())
             if allocated_image_conf.has_key('mac_id'):
@@ -460,7 +485,7 @@ class DVMPSService():
                 comment = allocated_image_conf['comment']
             if allocated_image_conf.has_key('priority'):
                 priority = allocated_image_conf['priority']
-            ret_val = { 'result': True, 'image_id': image_id, 'status': 'allocated', 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'priority': priority, 'comment': comment, 'vncport': self.__get_vnc_port(image_id, connection=connection) }
+            ret_val = { 'result': True, 'image_id': image_id, 'status': status, 'ip_addr': ip_addr, 'base_image': base_image, 'valid_for': valid_for, 'priority': priority, 'comment': comment, 'vncport': vnc_port }
         else:
             self.logger.warn("__image_status(%s): failed to look up image configuration" % (image_id,))
 
