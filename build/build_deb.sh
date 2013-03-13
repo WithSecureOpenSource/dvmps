@@ -56,11 +56,11 @@ install -m 0644 $2/misc/mac_ip_generator.py build_deb/opt/dvmps/extra/
 install -m 0644 $2/misc/dvmps.nginx-site build_deb/opt/dvmps/extra/
 install -m 0644 $2/misc/dvmps.schema build_deb/opt/dvmps/extra/
 
-install -m 0644 $2/misc/munin/dvmps_dirsizes build_deb/opt/dvmps/extra/munin/
-install -m 0644 $2/misc/munin/dvmps_priorities build_deb/opt/dvmps/extra/munin/
-install -m 0644 $2/misc/munin/dvmps_priorities_pct build_deb/opt/dvmps/extra/munin/
-install -m 0644 $2/misc/munin/dvmps_types build_deb/opt/dvmps/extra/munin/
-install -m 0644 $2/misc/munin/dvmps_clonerate build_deb/opt/dvmps/extra/munin/
+install -m 0755 $2/misc/munin/dvmps_dirsizes build_deb/opt/dvmps/extra/munin/
+install -m 0755 $2/misc/munin/dvmps_priorities build_deb/opt/dvmps/extra/munin/
+install -m 0755 $2/misc/munin/dvmps_priorities_pct build_deb/opt/dvmps/extra/munin/
+install -m 0755 $2/misc/munin/dvmps_types build_deb/opt/dvmps/extra/munin/
+install -m 0755 $2/misc/munin/dvmps_clonerate build_deb/opt/dvmps/extra/munin/
 
 install -m 0755 $2/misc/cron.d/dvmps_cleanup build_deb/etc/cron.d/
 install -m 0755 $2/misc/cron.d/healthcheck build_deb/etc/cron.d/
