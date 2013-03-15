@@ -84,14 +84,19 @@ for i in $DNS_SEARCHES; do
     echo "search $i" >> $TEMP_RESOLVCONF
 done
 
+
+echo "=== CURRENT $INTERFACES ==="
+cat $INTERFACES
+echo
+echo "=== CURRENT $RESOLVCONF ==="
+cat $RESOLVCONF
+echo
+
 # output generated files
-
-echo
-echo "===== $INTERFACES ====="
+echo "===== NEW $INTERFACES ====="
 cat $TEMP_INTERFACES
-
 echo
-echo "===== $RESOLVCONF ====="
+echo "===== NEW $RESOLVCONF ====="
 cat $TEMP_RESOLVCONF
 
 # confirm update

@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+#
+
+PREFIX=/usr/share
+BASE_DIR=$PREFIX/dvmps/conf
+
+echo
+echo "Dynamic Virtual Machine Provisioning Service Node Setup"
+echo "======================================================="
+echo
+
+if [ `whoami` != 'root' ]; then
+    echo "This script must be executed as 'root'."
+    echo "Setup aborted."
+    exit 1
+fi
+
+sh $BASE_DIR/check_kvm
+if [ $? -ne 0 ]; then
+    echo -n "Continue with setup? [y/N] "
+    read CONFIRM_KVM
+    if [ ! "$CONFIRM_KVM" = "Y" -a ! "$CONFIRM_KVM" = "y" ]; then
+        echo "Setup aborted."
+        exit 1
+    fi
+fi
+
+# TODO possibly break down to creating directories and tmpfs configurations
+# TODO move creating directories to dvmps-server.postinst
+echo -n "Set up libvirt? [y/N] "
+read CONFIRM_LIBVIRT
+if [ "$CONFIRM_LIBVIRT" = "Y" -o "$CONFIRM_LIBVIRT" = "y" ]; then
+    sh $BASE_DIR/setup_libvirt
+fi
+
+# TODO fix for being able to re-create the database
+echo -n "Set up database? [y/N] "
+read CONFIRM_DATABASE
+if [ "$CONFIRM_DATABASE" = "Y" -o "$CONFIRM_DATABASE" = "y" ]; then
+    sh $BASE_DIR/setup_database
+fi
+
+echo -n "Set up DHCP server configurations? [y/N] "
+read CONFIRM_DHCPD
+if [ "$CONFIRM_DHCPD" = "Y" -o "$CONFIRM_DHCPD" = "y" ]; then
+    sh $BASE_DIR/setup_dhcpd
+fi
+
+echo -n "Set up network configurations? [y/N] "
+read CONFIRM_NETWORK
+if [ "$CONFIRM_NETWORK" = "Y" -o "$CONFIRM_NETWORK" = "y" ]; then
+    sh $BASE_DIR/setup_network
+fi
+
+#TODO: "Web server is enabled/disabled" "Enable web server?"/"Leave web server enabled?"
+echo -n "Enable web server? [y/N] "
+read CONFIRM_HTTPD
+if [ "$CONFIRM_HTTPD" = "Y" -o "$CONFIRM_HTTPD" = "y" ]; then
+    sh $BASE_DIR/setup_httpd enable
+fi
+
+#TODO: "Munin node is enabled/disabled" "Enable Munin node?"/"Leave Munin node enabled?"
+# check if munin and plugins are installed
+if [ -d /etc/munin/plugins -a -e $PREFIX/munin/plugins/dvmps_dirsizes ]; then
+    echo -n "Enable Munin node? [y/N] "
+    read CONFIRM_MUNIN_NODE
+    if [ "$CONFIRM_MUNIN_NODE" = "Y" -o "$CONFIRM_MUNIN_NODE" = "y" ]; then
+        sh $BASE_DIR/setup_munin enable
+    fi
+fi
+
+echo -n "Restart DVMPS? [Y/n] "
+read CONFIRM_DVMPS
+if [ "$CONFIRM_DVMPS" != "N" -a "$CONFIRM_DVMPS" != "n" ]; then
+    service dvmps restart
+fi
+

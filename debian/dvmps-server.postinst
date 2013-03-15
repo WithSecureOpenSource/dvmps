@@ -1,0 +1,21 @@
+#!/bin/sh
+
+PREFIX=/usr/share/
+
+# Create /var dirs
+install -d /var/log/dvmps
+install -d /var/run/dvmps
+
+# Cron reload for dvmps_cleanup 
+/etc/init.d/cron reload
+
+# Enable dvmps service
+update-rc.d dvmps defaults
+
+# By default enable web interface
+sh $PREFIX/dvmps/conf/setup_httpd enable
+
+ln -s $PREFIX/dvmps/dvmps-setup /usr/sbin/dvmps-setup
+
+echo "Run dvmps-setup for configuring DVMPS"
+

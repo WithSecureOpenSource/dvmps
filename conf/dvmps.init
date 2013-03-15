@@ -16,16 +16,16 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 PYTHON=/usr/bin/python
 export PATH
 
-DVMPS_BIN_PATH=/opt/dvmps/bin
-DVMPS_SERVER=$DVMPS_BIN_PATH/DVMPSWSGIFlup.py
+DVMPS_PATH=/usr/share/dvmps
+DVMPS_SERVER=$DVMPS_PATH/DVMPSWSGIFlup.py
 DVMPS_DATABASE=dvmps
-DVMPS_LOGFILE=/var/opt/dvmps/dvmps.log
-DVMPS_RUN_PATH=/var/opt/dvmps/run
+DVMPS_LOGFILE=/var/log/dvmps/dvmps.log
+DVMPS_RUN_PATH=/var/run/dvmps
 DVMPS_SOCKET=$DVMPS_RUN_PATH/fcgi-dvmps-1.socket
 DVMPS_PIDFILE=$DVMPS_RUN_PATH/fcgi-dvmps-1.pid
 
-DVMPS_PLACEMENT_AGENT=$DVMPS_BIN_PATH/DVMPSPlacementAgent.py
-DVMPS_PLACEMENT_AGENT_LOGFILE=/var/opt/dvmps/dvmps-pa.log
+DVMPS_PLACEMENT_AGENT=$DVMPS_PATH/DVMPSPlacementAgent.py
+DVMPS_PLACEMENT_AGENT_LOGFILE=/var/log/dvmps/dvmps-pa.log
 DVMPS_PLACEMENT_AGENT_PIDFILE=$DVMPS_RUN_PATH/dvmps-pa.pid
 
 test -x $PYTHON || exit 0

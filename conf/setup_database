@@ -3,11 +3,12 @@
 # Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
 #
 
+BASE_DIR=/usr/share/dvmps
 PSQL=/usr/bin/psql
 CREATEUSER=/usr/bin/createuser
 CREATEDB=/usr/bin/createdb
-DVMPS_SCHEMA=/opt/dvmps/extra/dvmps.schema
-MAC_IP_GEN=/opt/dvmps/extra/mac_ip_generator.py
+DVMPS_SCHEMA=$BASE_DIR/conf/dvmps.schema
+MAC_IP_GEN=$BASE_DIR/conf/py/mac_ip_generator.py
 
 TEMP_FILE=/tmp/setup_database.tmp.$$
 TEMP_MAC_IP=/tmp/mac_ip.tmp.$$

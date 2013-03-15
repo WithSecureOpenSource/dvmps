@@ -1,0 +1,25 @@
+#!/bin/sh
+
+PREFIX=/usr/share
+
+service dvmps stop
+
+sh $PREFIX/dvmps/conf/setup_httpd disable
+
+echo "TODO: cleaning up libvirt directories creaed by dvmps?"
+echo "TODO: removing dvmps tmpfs configurations?"
+
+# destroy dvmps database
+dropdb dvmps
+
+# remove generated pyc files
+rm -f $PREFIX/dvmps/*.pyc
+rm -f $PREFIX/dvmps/conf/py/*.pyc
+
+# remove link
+rm /usr/sbin/dvmps-setup
+
+# remove log dirs and logs
+rm -rf /var/log/dvmps
+rm -rf /var/run/dvmps
+

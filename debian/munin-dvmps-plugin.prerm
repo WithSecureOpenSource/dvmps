@@ -1,0 +1,4 @@
+#!/bin/sh
+
+PREFIX=/usr/share
+sh $PREFIX/dvmps/conf/setup_munin disable
