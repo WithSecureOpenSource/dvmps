@@ -1,4 +1,0 @@
-#!/bin/sh
-
-ntpdate -s time.gtn
-

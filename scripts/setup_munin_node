@@ -1,17 +1,15 @@
 #!/bin/sh
 #
-# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+# Copyright (c) 2012-2013 F-Secure Corporation. All Rights Reserved.
 #
 
 MUNIN_NODE_INIT=/etc/init.d/munin-node
 PLUGINS_SRC=/opt/dvmps/extra/munin
-PLUGINS_DEST=/usr/share/munin/plugins
 PLUGINS_LINK_DEST=/etc/munin/plugins
 FILES="dvmps_dirsizes dvmps_priorities dvmps_priorities_pct dvmps_types dvmps_clonerate"
 
 for f in $FILES ; do
-    install -m 0755 $PLUGINS_SRC/$f $PLUGINS_DEST/
-    ln -s $PLUGINS_DEST/$f $PLUGINS_LINK_DEST/$f
+    ln -sf $PLUGINS_SRC/$f $PLUGINS_LINK_DEST/$f
 done
 
 if [ ! grep -q -i "^allow \.\*" /etc/munin/munin-node.conf ]
