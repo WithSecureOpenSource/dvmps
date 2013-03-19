@@ -1,0 +1,5 @@
+#!/bin/sh
+
+PREFIX=/usr/share/
+
+ln -s $PREFIX/pyshared/DVMPSClient.py /bin/dvmps

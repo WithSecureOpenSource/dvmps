@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+#
+
+BASEDIR=/etc/nginx
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 enable/disable"
+    exit 1
+fi
+COMMAND="$1"
+
+case $COMMAND in
+enable)
+    echo "Enabling dvmps web interface..."
+    ln -sf $BASEDIR/sites-available/dvmps.nginx-site $BASEDIR/sites-enabled/default
+    ;;
+disable)
+    echo "Disabling dvmps web interface..."
+    rm $BASEDIR/sites-enabled/default
+    ;;
+*)
+    $ECHO "Command: $COMMAND is unsupported by $0"
+esac
+
+service nginx stop
+service nginx start

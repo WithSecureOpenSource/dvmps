@@ -4,7 +4,7 @@
 #
 
 DHCPD_INIT=/etc/init.d/isc-dhcp-server
-DHCPDCONF_GEN=/opt/dvmps/extra/dhcp_config_generator.py
+DHCPDCONF_GEN=/usr/share/dvmps/conf/py/dhcp_config_generator.py
 
 DHCPDCONF=/etc/dhcp/dhcpd.conf
 DHCPDCONF_BAK=/etc/dhcp/dhcpd.conf.bak

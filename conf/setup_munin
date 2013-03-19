@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 F-Secure Corporation. All Rights Reserved.
+#
+
+PLUGINS=/usr/share/munin/plugins
+PLUGIN_LINKS=/etc/munin/plugins
+FILES="dvmps_dirsizes dvmps_priorities dvmps_priorities_pct dvmps_types dvmps_clonerate"
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 enable/disable"
+    exit 1
+fi
+COMMAND="$1"
+
+case $COMMAND in
+enable)
+    for f in $FILES ; do
+        ln -sf $PLUGINS/$f $PLUGIN_LINKS/$f
+    done
+    ;;
+disable)
+    for f in $FILES ; do
+        rm $PLUGIN_LINKS/$f
+    done
+    ;;
+*)
+    $ECHO "Command: $COMMAND is unsupported by $0"
+esac
+
+echo "Restarting Munin node..."
+service munin-node restart
+

@@ -1,0 +1,8 @@
+service/*                   usr/share/dvmps
+conf/dvmps-setup            usr/share/dvmps
+conf/check_kvm              usr/share/dvmps/conf
+conf/dvmps.*                usr/share/dvmps/conf
+conf/setup_*                usr/share/dvmps/conf
+conf/py                     usr/share/dvmps/conf
+conf/cron/dvmps_cleanup     etc/cron.d
+conf/dvmps.nginx-site       etc/nginx/sites-available/
