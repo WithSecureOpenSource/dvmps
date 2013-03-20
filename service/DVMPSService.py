@@ -24,6 +24,9 @@ domain_state_str = {
 }
 
 class DVMPSService():
+    __active_dynamic_root = '/var/lib/libvirt/images/active_dynamic/'
+    _vm_lock = threading.Lock()
+
     def __init__(self, database=None):
         self.database = database
         self.logger = logging.getLogger('dvmps')
@@ -31,11 +34,13 @@ class DVMPSService():
         self.maintenance_message = ""
         self.node_placement_data = None
 
+    
+        
     def __cloned_disk_image_path(self, image_id):
-        return '/var/lib/libvirt/images/active_dynamic/%s.qcow2' % image_id
+        return os.path.join(self.__active_dynamic_root, '%s.qcow2' % image_id)
 
     def __cloned_xml_definition_path(self, image_id):
-        return '/var/lib/libvirt/qemu/active_dynamic/%s.xml' % image_id
+        return os.path.join(self.__active_dynamic_root, '%s.xml' % image_id)
 
     def __base_image_definitions_path(self):
         return '/var/lib/libvirt/base_images'
@@ -85,6 +90,10 @@ class DVMPSService():
     def __list_base_images(self):
         return os.listdir(self.__base_image_definitions_path())
 
+    def _free_space(self):
+        s =  os.statvfs(self.__active_dynamic_root)
+        return ((s.f_bsize*s.f_bfree)/1024**3) >= 15
+
     def __create_image(self, image_id):
         retval = False
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
@@ -114,7 +123,7 @@ class DVMPSService():
                 mac = mip.get_mac_for_mac_id(allocated_image_conf['mac_id'])
                 ipaddr = mip.get_ip_for_mac_id(allocated_image_conf['mac_id'])
 
-            if full_path_base_image_file is not None and full_path_xml_template_file is not None and mac is not None and ipaddr is not None:
+            if full_path_base_image_file is not None and full_path_xml_template_file is not None and mac is not None and ipaddr is not None and self._free_space():
                 (rc,out,err) = self.__run_command(['qemu-img', 'create', '-b', full_path_base_image_file, '-f', 'qcow2', self.__cloned_disk_image_path(image_id)])
                 if rc == 0:
                     f = open(full_path_xml_template_file, 'r')
@@ -347,13 +356,14 @@ class DVMPSService():
                 connection.close()
             return { 'result': False, 'error': 'Failed to allocate image' }
 
-        if self.__create_image(image_id) == False:
-            self.logger.error("create_instance: failed to setup virtual machine")
-            ali.deallocate(image_id)
-            mip.deallocate(mac_id)
-            if connection_cleanup == True:
-                connection.close()
-            return { 'result': False, 'error': 'Failed to create backing image' }
+        with self._vm_lock:
+            if self.__create_image(image_id) == False:
+                self.logger.error("create_instance: failed to setup virtual machine")
+                ali.deallocate(image_id)
+                mip.deallocate(mac_id)
+                if connection_cleanup == True:
+                    connection.close()
+                return { 'result': False, 'error': 'Failed to create backing image' }
 
         self.logger.info("create_instance: successfully allocated image %s of type %s" % (image_id, base_image))
         ret_val = self.__image_status(image_id, connection=connection)
