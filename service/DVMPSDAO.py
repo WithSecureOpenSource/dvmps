@@ -120,10 +120,9 @@ class AllocatedImages:
         return result
 
     def renew(self, instance_name, valid_for=3600):
-        timenow = int(time.time())
         result = False
         cursor = self.dbc.dbconnection.cursor()
-        cursor.execute("update allocated set creation_time = %d, valid_for = %d where instance_name = %s", (timenow, valid_for, instance_name))
+        cursor.execute("update allocated set valid_for = %d where instance_name = %s", (valid_for, instance_name))
         if cursor.rowcount > 0:
             result = True
         self.dbc.dbconnection.commit()
