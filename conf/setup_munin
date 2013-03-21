@@ -8,7 +8,7 @@ PLUGIN_LINKS=/etc/munin/plugins
 FILES="dvmps_dirsizes dvmps_priorities dvmps_priorities_pct dvmps_types dvmps_clonerate"
 
 if [ -z "$1" ]; then
-    echo "Usage: $0 enable/disable"
+    echo "Usage: $0 enable/disable/status"
     exit 1
 fi
 COMMAND="$1"
@@ -23,6 +23,16 @@ disable)
     for f in $FILES ; do
         rm $PLUGIN_LINKS/$f
     done
+    ;;
+status)
+    for f in $FILES ; do
+        if [ ! -h $PLUGIN_LINKS/$f ]; then
+            echo "Munin node is currently not in use"
+            exit 1
+        fi
+    done
+    echo "Munin node is in use"
+    exit 0
     ;;
 *)
     $ECHO "Command: $COMMAND is unsupported by $0"

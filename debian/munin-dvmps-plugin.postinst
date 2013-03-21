@@ -1,13 +1,5 @@
 #!/bin/sh
 
-PREFIX=/usr/share
-
-# TODO: remove this as this is munin installation specific
-# Allowing connections to munin from anywhere
-grep -q -i "^allow \.\*" /etc/munin/munin-node.conf
-if [ $? -ne 0 ]; then
-    echo "allow .*" >> /etc/munin/munin-node.conf
-fi
-
 # Enabling the dvmps plugins by default
+PREFIX=/usr/share
 sh $PREFIX/dvmps/conf/setup_munin enable

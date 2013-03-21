@@ -7,6 +7,7 @@ BASE_DIR=/usr/share/dvmps
 PSQL=/usr/bin/psql
 CREATEUSER=/usr/bin/createuser
 CREATEDB=/usr/bin/createdb
+DROPDB=/usr/bin/dropdb
 DVMPS_SCHEMA=$BASE_DIR/conf/dvmps.schema
 MAC_IP_GEN=$BASE_DIR/conf/py/mac_ip_generator.py
 
@@ -36,39 +37,46 @@ cat > $TEMP_FILE <<EOF
 SELECT 1 FROM pg_roles WHERE rolname='root';
 EOF
 
-if [ -z `su -c "$PSQL -Atf $TEMP_FILE" postgres` ]; then
+if [ -z `su -c "$PSQL -Atf $TEMP_FILE" - postgres` ]; then
     echo "Creating database user 'root'..."
     su -c "$CREATEUSER -s root" postgres
 else
     echo "Database user 'root' already exists, skipping..."
 fi
 
-# create database 'dvmps' if not exist
+# chekc if 'dvmps' already exists
 
 cat > $TEMP_FILE <<EOF
 SELECT 1 FROM pg_database where datname='dvmps';
 EOF
-
-if [ -z `su -c "$PSQL -Atf $TEMP_FILE" postgres` ]; then
-    echo "Creating database 'dvmps'..."
-    $CREATEDB dvmps
-
-    echo "Creating database schema..."
-    $PSQL -f $DVMPS_SCHEMA dvmps
-
-    echo
-    echo "Specify the IP address range for dynamic nodes."
-    echo -n "Enter start IP address: "
-    read START_IP
-    echo -n "Enter end IP address: "
-    read END_IP
-
-    echo
-    echo "Populating database..."
-    python $MAC_IP_GEN $START_IP $END_IP > $TEMP_MAC_IP
-    $PSQL -f $TEMP_MAC_IP dvmps
-else
-    echo "Database 'dvmps' already exists, skipping..."
+if [ -n "`su -c "$PSQL -Atf $TEMP_FILE" - postgres`" ]; then
+    echo "Database 'dvmps' already exists, do you want to replace it [y/N]"
+    read CONFIRM
+    if [ "$CONFIRM" = "Y" -o "$CONFIRM" = "y" ]; then
+        $DROPDB dvmps
+    else
+        exit 0
+    fi
 fi
+
+# create database 'dvmps'
+
+echo "Creating database 'dvmps'..."
+$CREATEDB dvmps
+
+echo "Creating database schema..."
+$PSQL -f $DVMPS_SCHEMA dvmps
+
+echo
+echo "Specify the IP address range for dynamic nodes."
+echo -n "Enter start IP address: "
+read START_IP
+echo -n "Enter end IP address: "
+read END_IP
+
+echo
+echo "Populating database..."
+python $MAC_IP_GEN $START_IP $END_IP > $TEMP_MAC_IP
+$PSQL -f $TEMP_MAC_IP dvmps
 
 echo "Done."

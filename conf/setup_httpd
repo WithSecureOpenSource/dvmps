@@ -6,7 +6,7 @@
 BASEDIR=/etc/nginx
 
 if [ -z "$1" ]; then
-    echo "Usage: $0 enable/disable"
+    echo "Usage: $0 enable/disable/status"
     exit 1
 fi
 COMMAND="$1"
@@ -19,6 +19,16 @@ enable)
 disable)
     echo "Disabling dvmps web interface..."
     rm $BASEDIR/sites-enabled/default
+    ;;
+status)
+    LINK_TARGET=`readlink $BASEDIR/sites-enabled/default`
+    if [ "$LINK_TARGET" = "$BASEDIR/sites-available/dvmps.nginx-site" ]; then
+        echo "Web interface is in use"
+        exit 0
+    else
+        echo "Web interface is currently not in use"
+        exit 1
+    fi 
     ;;
 *)
     $ECHO "Command: $COMMAND is unsupported by $0"

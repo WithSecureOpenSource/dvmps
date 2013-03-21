@@ -1,0 +1,61 @@
+
+Building DVMPS packages
+-----------------------
+
+1. Go to dvmps directory
+2. Update the changelog if needed eg. for adding extra version information
+  $ dch -i "comment"
+     or
+  $ dch -l-$USER "comment"
+3. Build packages
+  $ dpkg-buildpackage
+
+
+Installing and running DVMPS service
+------------------------------------
+1. Install
+  $ dpkg -i dvmps-server-<version>_all.deb
+2. Setup DVMPS
+  $ dvmps-setup
+3. Running and stopping DVMPS service
+  $ service dvmps {start|stop|restart}
+
+Additional configurations:
+1. Update server clock regularly. Two options:
+  a) Install and configure 'ntp' (Network Time Protocol daemon) for automatic 
+     system clock updates
+  b) Install 'ntpdate' and use cron to update the system clock
+
+
+Munin-node configuration
+------------------------
+Install munin-dvmps-plugin on the same machine as dvmps-server. For allowing Munin web UI to be viewed from external sources check the munin-node allow rule.
+
+Open the /etc/munin/munin-node.conf file and look for the line beginning with word 'allow'. 
+For allowing all taffic, change the line to "allow .*" and restart munin-node.
+  $ service munin-node restart
+
+
+Installing and running DVMPS client
+-----------------------------------
+1. Install
+  $ dpkg -i dvmps-client-<version>_all.deb
+
+2. Run from command line. Example:
+  $ dvmps --serverurl http://<dvmps server address> create <base_image>
+  $ dvmps --serverurl http://<dvmps server address> poweron <image_id>
+
+3. Using from python script. Example:
+#!/usr/bin/python
+import DVMPSClient
+
+ret = DVMPSClient.create(serverurl, image, validfor, priority, comment)
+if image_id in ret:
+    DVMPSClient.poweron(serverurl, ret['image_id'])
+
+# For more details about the python API see /usr/share/pyshared/DVMPSClient.py
+
+
+
+
+
