@@ -590,6 +590,11 @@ class DVMPSService():
         ret_val = { 'result': True, 'running_images': image_statuses }
         return ret_val
 
+    def renew(self, image_id, valid_for):
+        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
+        ali = DVMPSDAO.AllocatedImages(dbc)
+        return { 'result': ali.renew(image_id, valid_for), 'message': 'New VM renew time %s' % valid_for }
+
     def base_images(self):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
 

@@ -144,7 +144,11 @@ class DVMPSWSGI:
         elif command == 'set_node_placement_data' and request_type == self.REQUEST_POST:
             if request_params.has_key('node_placement_data'):
                 res = self.dvmps.set_node_placement_data(request_params['node_placement_data'])
-
+        elif command == 'renew' and request_type == self.REQUEST_POST:
+            try:
+                res =  self.dvmps.renew(**request_params)
+            except Exception as e:
+                res = {'result':False, 'error': str(e)}
         else:
             res = {'result':False, 'error':'Unknown command or bad request method'}
 
