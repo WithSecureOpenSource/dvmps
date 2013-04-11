@@ -10,7 +10,12 @@ echo "TODO: cleaning up libvirt directories creaed by dvmps?"
 echo "TODO: removing dvmps tmpfs configurations?"
 
 # destroy dvmps database
-dropdb dvmps
+if [ "$1" != "upgrade" ]; then
+    echo "Deleting DVMPS database"
+    dropdb dvmps
+else
+    echo "Upgrading so not deleting the database"
+fi
 
 # remove generated pyc files
 rm -f $PREFIX/dvmps/*.pyc

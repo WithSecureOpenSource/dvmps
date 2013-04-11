@@ -10,13 +10,13 @@ Vcs-Browser: https://github.f-secure.com/rd-dckul-sys/dynamic-provisioning
 
 Package: dvmps-client
 Architecture: all
-Depends: python-all (>= 2.6.6)
+Depends: python
 Description: Dynamic virtual machine provisioning client
  <insert long description, indented with spaces>
 
 Package: dvmps-server
 Architecture: all
-Depends: python-all (>= 2.6.6), qemu-kvm, libvirt-bin (>= 0.9.12 ), python-libvirt (>= 0.9.12 ), python-pygresql, postgresql, nginx
+Depends: qemu-kvm, libvirt-bin (>= 0.9.12 ), python-libvirt (>= 0.9.12 ), python-pygresql, postgresql, nginx
 Recommends: vlan
 Description: Dynamic virtual machine provisioning server
  <insert long description, indented with spaces>
