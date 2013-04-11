@@ -22,7 +22,7 @@ Installing and running DVMPS service
 
 Additional configurations:
 1. Update server clock regularly. Two options:
-  a) Install and configure 'ntp' (Network Time Protocol daemon) for automatic 
+  a) Install and configure 'ntp' (Network Time Protocol daemon) for automatic
      system clock updates
   b) Install 'ntpdate' and use cron to update the system clock
 
@@ -31,7 +31,7 @@ Munin-node configuration
 ------------------------
 Install munin-dvmps-plugin on the same machine as dvmps-server. For allowing Munin web UI to be viewed from external sources check the munin-node allow rule.
 
-Open the /etc/munin/munin-node.conf file and look for the line beginning with word 'allow'. 
+Open the /etc/munin/munin-node.conf file and look for the line beginning with word 'allow'.
 For allowing all taffic, change the line to "allow .*" and restart munin-node.
   $ service munin-node restart
 
@@ -54,8 +54,4 @@ if image_id in ret:
     DVMPSClient.poweron(serverurl, ret['image_id'])
 
 # For more details about the python API see /usr/share/pyshared/DVMPSClient.py
-
-
-
-
 
