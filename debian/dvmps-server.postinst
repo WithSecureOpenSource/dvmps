@@ -11,6 +11,7 @@ install -d /var/run/dvmps
 
 # Enable dvmps service
 update-rc.d dvmps defaults
+service dvmps start
 
 # By default enable web interface
 sh $PREFIX/dvmps/conf/setup_httpd enable

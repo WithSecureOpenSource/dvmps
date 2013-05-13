@@ -20,6 +20,8 @@ export DH_OPTIONS
 	dh $@ --with python2
 
 override_dh_auto_install:
+	install -d $(CURDIR)/debian/dvmps-server/var/lib/libvirt/dvmps_active/images
+	install -d $(CURDIR)/debian/dvmps-server/var/lib/libvirt/dvmps_active/ip_mac_allocations
 	install -d $(CURDIR)/debian/dvmps-server/etc/default
 	install -d $(CURDIR)/debian/dvmps-server/etc/init.d
 	install -m 0644 conf/dvmps.defaults $(CURDIR)/debian/dvmps-server/etc/default/dvmps

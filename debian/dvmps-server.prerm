@@ -6,9 +6,6 @@ service dvmps stop
 
 sh $PREFIX/dvmps/conf/setup_httpd disable
 
-echo "TODO: cleaning up libvirt directories creaed by dvmps?"
-echo "TODO: removing dvmps tmpfs configurations?"
-
 # destroy dvmps database
 if [ "$1" != "upgrade" ]; then
     echo "Deleting DVMPS database"

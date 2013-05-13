@@ -41,8 +41,8 @@ def dirsize(path):
     return size
 
 # Default settings
-dirs = [('active_images','/var/lib/libvirt/images/active_dynamic/'),
-        ('base_images','/var/lib/libvirt/images/base/')]
+dirs = [('active_images','/var/lib/libvirt/dvmps_active/images/'),
+        ('base_images','/var/lib/libvirt/images/')]
 
 # Get overrides from environment
 for key in ['dirs']:

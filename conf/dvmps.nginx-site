@@ -1,5 +1,5 @@
 upstream dvmps_fcgi {
-    server unix:/var/opt/dvmps/run/fcgi-dvmps-1.socket;
+    server unix:/var/run/dvmps/fcgi-dvmps-1.socket;
 }
 
 server {
