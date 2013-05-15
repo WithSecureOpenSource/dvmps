@@ -24,7 +24,7 @@ domain_state_str = {
 }
 
 class DVMPSService():
-    __active_dynamic_root = '/var/lib/libvirt/images/active_dynamic/'
+    __active_dynamic_root = '/var/lib/libvirt/dvmps_active/images/'
     _vm_lock = threading.Lock()
 
     def __init__(self, database=None):
@@ -43,13 +43,13 @@ class DVMPSService():
         return os.path.join(self.__active_dynamic_root, '%s.xml' % image_id)
 
     def __base_image_definitions_path(self):
-        return '/var/lib/libvirt/base_images'
+        return '/var/lib/libvirt/images'
 
     def __base_disk_image_path(self, base_image_name):
-        return '/var/lib/libvirt/base_images/%s/disk_image.qcow2' % base_image_name
+        return '/var/lib/libvirt/images/%s/disk_image.qcow2' % base_image_name
 
     def __base_xml_template_path(self, base_image_name):
-        return '/var/lib/libvirt/base_images/%s/virtual_machine_config.xml' % base_image_name
+        return '/var/lib/libvirt/images/%s/virtual_machine_config.xml' % base_image_name
 
     def __run_command(self, command_and_args):
         proc = subprocess.Popen(command_and_args, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -88,7 +88,10 @@ class DVMPSService():
         return port
 
     def __list_base_images(self):
-        return os.listdir(self.__base_image_definitions_path())
+        dirpath = self.__base_image_definitions_path()
+        ls = os.listdir(dirpath)
+        image_list = [d for d in ls if os.path.isdir(dirpath+'/'+d)]
+        return image_list
 
     def _free_space(self):
         s =  os.statvfs(self.__active_dynamic_root)

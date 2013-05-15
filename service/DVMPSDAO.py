@@ -29,7 +29,7 @@ class MacIpPairs:
         random.shuffle(free_pairs)
         for pair in free_pairs:
             try:
-                fn = os.path.join('/var/lib/libvirt/ip_mac_allocations', pair[1].replace(':', '-'))
+                fn = os.path.join('/var/lib/libvirt/dvmps_active/ip_mac_allocations', pair[1].replace(':', '-'))
                 fh = os.open(fn, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
                 os.write(fh, str(image_id))
                 os.close(fh)
@@ -47,7 +47,7 @@ class MacIpPairs:
         if mac is None:
             self.logger.error("MacIpPairsDAO: cannot map_id %d to mac address" % mac_id)
             return
-        fn = os.path.join('/var/lib/libvirt/ip_mac_allocations', mac.replace(':', '-'))
+        fn = os.path.join('/var/lib/libvirt/dvmps_active/ip_mac_allocations', mac.replace(':', '-'))
         try:
             os.unlink(fn)
         except:

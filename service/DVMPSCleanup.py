@@ -54,7 +54,7 @@ def cleanup_libvirt():
         print "FAILED to open libvirt connection"
 
 def cleanup_images():
-    images = os.listdir('/var/lib/libvirt/images/active_dynamic/')
+    images = os.listdir('/var/lib/libvirt/dvmps_active/images/')
     for name in images:
         name, _, ending = name.partition(".")
         if len(name) != 36 or not ending in ('qcow2', 'img'):
@@ -67,12 +67,12 @@ def cleanup_images():
 
         if ali.get_configuration(name) == None:
             print "image: %s not found in active set" % name
-            os.unlink('/var/lib/libvirt/images/active_dynamic/%s.%s' % (name, ending))
+            os.unlink('/var/lib/libvirt/dvmps_active/images/%s.%s' % (name, ending))
         else:
             pass
 
 def cleanup_xmls():
-    images = os.listdir('/var/lib/libvirt/qemu/active_dynamic/')
+    images = os.listdir('/var/lib/libvirt/dvmps_active/images/')
     for name in images:
         if len(name) != 40 or name[-4:] != '.xml':
             continue
@@ -84,7 +84,7 @@ def cleanup_xmls():
 
         if ali.get_configuration(name) == None:
             print "xml: %s not found in active set" % name
-            os.unlink('/var/lib/libvirt/qemu/active_dynamic/%s.xml' % name)
+            os.unlink('/var/lib/libvirt/dvmps_active/images/%s.xml' % name)
         else:
             pass
 
@@ -106,12 +106,12 @@ def cleanup_monitors():
             pass
 
 def cleanup_mac_ip_bindings():
-    bindings = os.listdir('/var/lib/libvirt/ip_mac_allocations/')
+    bindings = os.listdir('/var/lib/libvirt/dvmps_active/ip_mac_allocations/')
     for binding in bindings:
         image_id = ""
-        if time.time() - os.stat('/var/lib/libvirt/ip_mac_allocations/' + binding).st_ctime < 5:
+        if time.time() - os.stat('/var/lib/libvirt/dvmps_active/ip_mac_allocations/' + binding).st_ctime < 5:
             print "Skipping file newer than 5 seconds to give grace period for writing"
-        with open('/var/lib/libvirt/ip_mac_allocations/' + binding) as f:
+        with open('/var/lib/libvirt/dvmps_active/ip_mac_allocations/' + binding) as f:
             image_id = f.read()
         try:
             u = uuid.UUID(image_id)
@@ -120,7 +120,7 @@ def cleanup_mac_ip_bindings():
 
         if ali.get_configuration(image_id) == None:
             print "ip_mac_binding: %s not found in active set, claimed to be owned by %s" % (binding, image_id)
-            os.unlink('/var/lib/libvirt/ip_mac_allocations/%s' % binding)
+            os.unlink('/var/lib/libvirt/dvmps_active/ip_mac_allocations/%s' % binding)
 
 if __name__ == "__main__":
     cleanup_logs()

@@ -19,7 +19,7 @@ if len(sys.argv) == 2:
         print "clones.cdef clones,60,*"
         sys.exit(0)
 
-(rc,out,err) = call('grep "successfully allocated image" /var/opt/dvmps/dvmps.log | wc -l', shell=True)
+(rc,out,err) = call('grep "successfully allocated image" /var/log/dvmps/dvmps.log | wc -l', shell=True)
 if rc == 0:
     print "clones.value %s" % out.strip()
 

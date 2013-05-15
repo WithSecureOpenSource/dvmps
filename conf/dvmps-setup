@@ -27,12 +27,28 @@ if [ $? -ne 0 ]; then
     fi
 fi
 
-# TODO possibly break down to creating directories and tmpfs configurations
-# TODO move creating directories to dvmps-server.postinst
-echo -n "Set up libvirt? [y/N] "
-read CONFIRM_LIBVIRT
-if [ "$CONFIRM_LIBVIRT" = "Y" -o "$CONFIRM_LIBVIRT" = "y" ]; then
-    sh $BASE_DIR/setup_libvirt
+#TODO: currently only the default image directory works
+#DEFAULT_IMAGEDIR=/var/lib/libvirt/images
+#echo -n "Please specify the libvirt image directory [$DEFAULT_IMAGEDIR]: "
+#read IMAGEDIR
+#
+#if [ -z "$IMAGEDIR" ]; then
+#    IMAGEDIR=$DEFAULT_IMAGEDIR
+#fi
+#
+#echo -n "$IMAGEDIR? [Y/n] "
+#read CONFIRM
+#if [! -d "$IMAGEDIR" ]; then
+#    echo "Creating directory $IMAGEDIR"
+#    mkdir -p $IMAGEDIR
+#fi
+
+
+# TODO fix setup_tmpfs to follow packaging guidelines
+echo -n "Set up tmpfs? [y/N] "
+read CONFIRM_TMPFS
+if [ "$CONFIRM_TMPFS" = "Y" -o "$CONFIRM_TMPFS" = "y" ]; then
+    sh $BASE_DIR/setup_tmpfs
 fi
 
 echo -n "Set up database? [y/N] "
@@ -51,6 +67,12 @@ echo -n "Set up network configurations? [y/N] "
 read CONFIRM_NETWORK
 if [ "$CONFIRM_NETWORK" = "Y" -o "$CONFIRM_NETWORK" = "y" ]; then
     sh $BASE_DIR/setup_network
+fi
+
+echo -n "Restart DVMPS? [Y/n] "
+read CONFIRM_DVMPS
+if [ "$CONFIRM_DVMPS" != "N" -a "$CONFIRM_DVMPS" != "n" ]; then
+    service dvmps restart
 fi
 
 sh $BASE_DIR/setup_httpd status
@@ -84,12 +106,8 @@ if [ -d /etc/munin/plugins -a -e $PREFIX/munin/plugins/dvmps_dirsizes ]; then
         fi
     fi
 else
-    echo -n "Install munin-node and munin-dvmps-plugins for configuring Munin node"
+    echo "Install munin-node and munin-dvmps-plugins for configuring Munin node"
 fi
 
-echo -n "Restart DVMPS? [Y/n] "
-read CONFIRM_DVMPS
-if [ "$CONFIRM_DVMPS" != "N" -a "$CONFIRM_DVMPS" != "n" ]; then
-    service dvmps restart
-fi
+echo ""
 
