@@ -36,6 +36,8 @@ echo "Generating file $DHCPDCONF..."
 cat > $TEMP_DHCPDCONF <<EOF
 ddns-update-style none;
 
+option netbios-node-type 2;´
+
 # option definitions common to all supported networks...
 option domain-name "$DOMAIN_NAME";
 option domain-name-servers $DOMAIN_NAME_SERVERS;
