@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+"""
+Copyright (c) 2011-2013 F-Secure
+See LICENSE for details
+"""
+
 import libvirt
 import uuid
 import DVMPSDAO
@@ -8,7 +13,7 @@ import stat
 import time
 
 dbc = DVMPSDAO.DatabaseConnection(database='dvmps')
-ali = DVMPSDAO.AllocatedImages(dbc) 
+ali = DVMPSDAO.AllocatedImages(dbc)
 
 def cleanup_logs():
     logdir = '/var/log/libvirt/qemu'

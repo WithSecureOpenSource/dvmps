@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+"""
+Copyright (c) 2011-2013 F-Secure
+See LICENSE for details
+"""
+
 import os
 import sys
 import optparse
@@ -23,7 +28,7 @@ if __name__ == '__main__':
     p = optparse.OptionParser(description=__doc__, version=__version__)
     p.set_usage(__usage__)
     p.add_option("-f", dest="socketfile", help="listen on <socketfile>")
-    p.add_option("-d", dest="database", help="used datebase", default="dvmps") 
+    p.add_option("-d", dest="database", help="used datebase", default="dvmps")
     p.add_option("-l", dest="logfile", help="write log in file")
     opt, args = p.parse_args(sys.argv)
 

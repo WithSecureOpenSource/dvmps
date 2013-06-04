@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+"""
+Copyright (c) 2011-2013 F-Secure
+See LICENSE for details
+"""
+
 import pgdb
 import time
 import random

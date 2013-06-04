@@ -1,3 +1,8 @@
+"""
+Copyright (c) 2012-2013 F-Secure
+See LICENSE for details
+"""
+
 from PySide.QtCore import QObject, QFile
 #from PySide.QtGui import *
 from PySide.QtUiTools import QUiLoader
@@ -9,9 +14,8 @@ def loadDialog(file_name):
         ret_val = loader.load(the_file)
         the_file.close()
         return ret_val
-        
+
 class ProgressDialog(QObject):
-    
     def __init__(self):
         QObject.__init__(self)
         self._dialog = loadDialog(r'dialog2.ui')
@@ -26,7 +30,7 @@ class ProgressDialog(QObject):
 
     def exec_(self):
         self._dialog.exec_()
-        
+
     def getResult(self):
         #2 if nothing yet, 0 if cancelled
         return self._dialog.result()

@@ -1,3 +1,8 @@
+"""
+Copyright (c) 2012-2013 F-Secure
+See LICENSE for details
+"""
+
 import socket
 import os
 import DVMPSClient
@@ -18,7 +23,7 @@ def allocateMachine(host, base_img, expires, comment):
 
     if ret['status'] != "allocated":
         return False, None, 'Error is: ' + str(ret)
-    
+
     return True, ret['ip_addr'], None
 
 def deallocate(blade, machine_id):
@@ -45,7 +50,7 @@ def listTemplates(host):
                       default='http://%s' % host)
     (options, args) = parser.parse_args()
     return DVMPSClient.base_images(options)
-   
+
 def canConnectWithRemoteDesktop(ip_add):
     #should be able to connect a socket to ip_add:3389
     socket_to_rd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -62,7 +67,7 @@ def connectWithRemoteDesktop(ip_add):
         subprocess.Popen(r'mstsc.exe Default.rdp /v:' + ip_add)
     else:
         subprocess.Popen(r'mstsc.exe /v:' + ip_add)
- 
+
 class Curry:
     def __init__(self, fun, *args, **kwargs):
         self.fun = fun

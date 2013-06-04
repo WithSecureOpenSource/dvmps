@@ -1,3 +1,8 @@
+"""
+Copyright (c) 2012-2013 F-Secure
+See LICENSE for details
+"""
+
 from PySide.QtCore import Qt, QObject, Slot, QFile
 from PySide.QtGui import QApplication, QTreeWidgetItem, QMessageBox
 from PySide.QtUiTools import QUiLoader
@@ -10,12 +15,12 @@ from kvm import (allocateMachine, deallocate, listRunningVms, listTemplates,
                 connectWithRemoteDesktop, canConnectWithRemoteDesktop, Curry)
 from progress_dialog import ProgressDialog
 """
-TODO:    
+TODO:
     code cleanup:
     de-hardcode
     may be worth removing 'workers' from here and move to kvm.py to reduce
     code fragmentation
-    
+
     power on:
     implement
 
@@ -24,13 +29,13 @@ TODO:
 
     info about a running vm:
     implement
-    
+
     on deallocate do progress popup
-    
+
     right button popup menu on deployed vm's lists
 
     preserve sort order in deployed vms list
-    
+
     implement proper sorting for the fields (case insensitive, ip add and so)
 """
 
@@ -52,7 +57,7 @@ def listTemplatesWorker(host, ret_queue):
     '''Returns the list of available templates in the given host'''
     ret = listTemplates(host)
     ret_queue.put(ret)
-    
+
 def deployWorker(template, expires, comment, host, ret_queue):
     '''Allocates a new VM from the given template.
     On success it puts the ip address of the newly allocated machine
@@ -65,9 +70,9 @@ def deployWorker(template, expires, comment, host, ret_queue):
     if result == False:
         ret_queue.put(None)
         ret_queue.put(err_msg)
-    else:        
+    else:
         ret_queue.put(ip_address)
-        
+
 def connectWorker(ip_address, progress_msgs, ret_queue, abort_event):
     '''Tries to connect with remote desktop to the given ip_addess, progress
     and retries are reported thru the queue 'progress_msgs'.
@@ -116,13 +121,13 @@ def listRunningVMWorker(host, progress_msgs, running_vms):
         running_vms.put(lst)
 
     running_vms.put(None)
-    
+
 def resolveHost(host):
     '''Resolves the name of the host into it's ip address or a random one'''
     if not host in HOSTS:
         return HOSTS.values()[random.randint(0, len(HOSTS)-1)]
     else:
-        return HOSTS[host]        
+        return HOSTS[host]
 
 def loadWindowFromFile(file_name):
     '''Load the window definition from the resource ui file'''
@@ -146,7 +151,7 @@ def isAlive(threads):
 
 class KvmUI(QObject):
     ''' UI Wrapper to kvm operations'''
-    
+
     def __init__(self):
         QObject.__init__(self)
         self._mywindow = loadWindowFromFile(r'mainwindow.ui')
@@ -178,7 +183,7 @@ class KvmUI(QObject):
             Curry(self.deploySelectedFromDblClick,True))
         self._mywindow.tw_running_vms.itemDoubleClicked.connect(
             self.connectToSelectedFromRunning)
-    
+
     def show(self):
         '''Shows the main ui'''
         self._mywindow.show()
@@ -186,7 +191,7 @@ class KvmUI(QObject):
     def setComment(self, comment):
         '''Sets the comment used when creating a vm'''
         self._mywindow.le_comment.setText(comment)
-    
+
     @Slot()
     def showHideRunningVms(self):
         '''Shows / hides the running vm list'''
@@ -214,7 +219,7 @@ class KvmUI(QObject):
             hostlist = {self._mywindow.cb_blades.currentText():
                         HOSTS[self._mywindow.cb_blades.currentText()]}
         self.loadRunningVms(hostlist)
-        
+
     def loadRunningVms(self, hosts):
         '''Loads the running vm list from the given hosts'''
         self._progress_dlg.reportProgress("Fetching running vm's list...")
@@ -228,11 +233,11 @@ class KvmUI(QObject):
                                                             running_vms,))
             work.start()
             workers.append(work)
-        
+
         self._waitForTask(workers,
                           progress_msgs=progress_msgs,
                           abort_event=None)
-            
+
         self._mywindow.tw_running_vms.clear()
         end_marks = 0
         while end_marks != len(workers):
@@ -241,11 +246,11 @@ class KvmUI(QObject):
                 self._addRunningVmToList(elem)
             else:
                 end_marks += 1
-            
+
         self._mywindow.tw_running_vms.sortByColumn(0,
                                                   Qt.SortOrder.AscendingOrder)
         self._progress_dlg.close()
-        
+
     @Slot()
     def _addRunningVmToList(self, lst):
         '''adds a vm to the running vm list from a list of strings'''
@@ -265,14 +270,14 @@ class KvmUI(QObject):
         double-click
         '''
         self.deploySelectedTemplates(connect_after)
-        
+
     @Slot()
     def deploySelectedTemplates(self, connect_after=False):
         '''Deploys machines using the selected templates'''
         templates = []
         for item in self._mywindow.lv_templates.selectedItems():
             templates.append(item.text())
-        
+
         if len(templates) == 0:
             QMessageBox.warning(self._mywindow, "Template",
                                 "Please select a template to deploy")
@@ -281,9 +286,9 @@ class KvmUI(QObject):
         comment = self._mywindow.le_comment.text()
         expires = int(self._mywindow.le_expires.text())
         host = resolveHost(self._mywindow.cb_blades.currentText())
-        
+
         self.deployTemplates(templates, comment, expires, host, connect_after)
-        
+
     def deployTemplates(self, templates, comment, expires, host, connect_after):
         '''Deploys the provided templates as new vms'''
         for template in templates:
@@ -317,14 +322,14 @@ class KvmUI(QObject):
         progress_msgs = Queue.Queue()
         ret_queue = Queue.Queue()
         abort = Event()
-        work = Thread(target=connectWorker, args=(ip_address, 
+        work = Thread(target=connectWorker, args=(ip_address,
                                                   progress_msgs,
-                                                  ret_queue, 
+                                                  ret_queue,
                                                   abort,))
         work.start()
         self._waitForTask(work, progress_msgs=progress_msgs,
                           abort_event=abort)
-            
+
         returned = ret_queue.get()
 
         self._progress_dlg.close()
@@ -333,7 +338,7 @@ class KvmUI(QObject):
             if not abort.isSet():
                 self._progress_dlg.reportProgress(err_msg)
                 self._progress_dlg.exec_()
-            
+
     def _addMachineToDeployedList(self, ip_address, comment, host):
         '''Adds the given machine to the list of the user deployed ones'''
         itm = QTreeWidgetItem()
@@ -389,7 +394,7 @@ class KvmUI(QObject):
         self._mywindow.lv_templates.clear()
         for image in response['base_images']:
             self._mywindow.lv_templates.addItem(image['base_image_name'])
-        
+
         self._progress_dlg.close()
 
     def _waitForTask(self, tasks, progress_msgs=None, abort_event=None):
@@ -402,7 +407,7 @@ class KvmUI(QObject):
         '''
         if type(tasks) != type([]):
             tasks = [tasks]
-            
+
         while True:
             if isAlive(tasks) == False:
                 break
@@ -416,7 +421,7 @@ class KvmUI(QObject):
                 break
             APP.processEvents()
             time.sleep(0)
-                
+
 if __name__ == '__main__':
     APP = QApplication("abc")
 

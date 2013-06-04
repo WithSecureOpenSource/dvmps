@@ -23,7 +23,7 @@ def ipv4addr_dotdec2bytes(ip_dotdec):
     for o in octets:
         ip_bytes = ip_bytes + (o << (8 * k))
         k = k - 1
-    return ip_bytes 
+    return ip_bytes
 
 
 def ipv4addr_bytes2dotdec(ip_bytes):

@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+"""
+Copyright (c) 2011-2013 F-Secure
+See LICENSE for details
+"""
+
 import time
 import subprocess
 import os
@@ -34,8 +39,6 @@ class DVMPSService():
         self.maintenance_message = ""
         self.node_placement_data = None
 
-    
-        
     def __cloned_disk_image_path(self, image_id):
         return os.path.join(self.__active_dynamic_root, '%s.qcow2' % image_id)
 
