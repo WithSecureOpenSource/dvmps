@@ -561,17 +561,6 @@ class DVMPSService():
         connection.close()
         return ret_val
 
-    def status(self):
-        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
-        ali = DVMPSDAO.AllocatedImages(dbc)
-
-        images = ali.get_images()
-        ret_val = { 'result': True, 'allocated_images': len(images) }
-        if self.maintenance_mode == True:
-            ret_val['maintenance'] = True
-            ret_val['maintenance_message'] = self.maintenance_message
-        return ret_val
-
     def running_images(self):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
