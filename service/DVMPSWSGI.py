@@ -131,10 +131,7 @@ class DVMPSWSGI:
             if image_id is not None:
                 res = self.dvmps.image_status(image_id)
 
-        elif command == 'systemstatus':
-            res = self.dvmps.status()
-
-        elif command == 'running_images':
+        elif command in ('systemstatus', 'running_images'):
             res = self.dvmps.running_images()
 
         elif command == 'base_images':
