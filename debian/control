@@ -16,7 +16,7 @@ Description: Dynamic virtual machine provisioning client
 
 Package: dvmps-server
 Architecture: all
-Depends: qemu-kvm, libvirt-bin (>= 0.9.12 ), python-libvirt (>= 0.9.12 ), python-pygresql, postgresql, nginx, pm-utils
+Depends: qemu-kvm, libvirt-bin (>= 0.9.12 ), python-libvirt (>= 0.9.12 ), python-pygresql, postgresql, nginx, pm-utils, isc-dhcp-server, python-flup
 Recommends: vlan
 Description: Dynamic virtual machine provisioning server
  <insert long description, indented with spaces>
