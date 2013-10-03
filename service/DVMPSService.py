@@ -118,6 +118,8 @@ class DVMPSService():
                 try:
                     __full_path_base_image_file = self.__base_disk_image_path(allocated_image_conf['base_image_name'])
                     __full_path_xml_template_file = self.__base_xml_template_path(allocated_image_conf['base_image_name'])
+                    __full_path_base_image_file = os.path.realpath(__full_path_base_image_file)
+                    __full_path_xml_template_file = os.path.realpath(__full_path_xml_template_file)
                     os.stat(__full_path_base_image_file)
                     os.stat(__full_path_xml_template_file)
                     full_path_base_image_file = __full_path_base_image_file
