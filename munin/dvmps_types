@@ -16,15 +16,6 @@ if len(sys.argv) == 2:
         print "graph_vlabel number of instances"
         print "graph_category Virtual Machines"
 
-#        images = sorted(i['base_images'], key=get_image_key)
-
-#        image_names = []
-#        for image in i['base_images']:
-#            image_name = image['base_image_name']
-#            image_names.append(image_name)
-
-#        print "graph_order %s" % (' '.join(image_names),)
-
         for image in sorted(i['base_images'], key=get_image_key):
             image_name = image['base_image_name']
             print "%s.label %s" % (image_name,image_name)
@@ -37,7 +28,7 @@ d = o.read()
 i = json.loads(d)
 
 for image in i['base_images']:
-    images[image['base_image_name']] = 0
+    images[image] = 0
 
 o = urllib2.urlopen('http://localhost/running_images', json.dumps(None))
 d = o.read()
@@ -52,4 +43,3 @@ for image in i['running_images']:
 
 for k in sorted(images.keys()):
     print "%s.value %d" % (k,images[k])
-
