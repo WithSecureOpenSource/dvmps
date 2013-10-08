@@ -4,9 +4,6 @@ import sys
 import urllib2
 import json
 
-def get_image_key(element):
-    return element['base_image_name']
-
 if len(sys.argv) == 2:
     if sys.argv[1] == "config":
         o = urllib2.urlopen('http://localhost/base_images', json.dumps(None))
@@ -15,11 +12,12 @@ if len(sys.argv) == 2:
         print "graph_title DVMPS - number of clones"
         print "graph_vlabel number of instances"
         print "graph_category Virtual Machines"
+        print "graph_printf %3.0lf"
 
-        for image in sorted(i['base_images'], key=get_image_key):
-            image_name = image['base_image_name']
-            print "%s.label %s" % (image_name,image_name)
-            print "%s.draw AREASTACK" % image_name
+        for image in sorted(i['base_images']):
+            image = image.replace(".", "_")
+            print "%s.label %s" % (image, image)
+            print "%s.draw AREASTACK" % image
         sys.exit(0)
 
 images = {}
@@ -42,4 +40,4 @@ for image in i['running_images']:
         images[bi] = 1
 
 for k in sorted(images.keys()):
-    print "%s.value %d" % (k,images[k])
+    print "%s.value %d" % (k.replace(".", "_"), images[k])
