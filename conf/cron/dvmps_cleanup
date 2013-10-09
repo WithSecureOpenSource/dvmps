@@ -4,5 +4,5 @@
 
 MAILTO=root
 
-*/5 * * * *	root	python /opt/dvmps/bin/DVMPSCleanup.py
+*/5 * * * *	root	python /usr/share/dvmps/DVMPSCleanup.py
 
