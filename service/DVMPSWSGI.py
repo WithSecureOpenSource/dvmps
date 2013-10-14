@@ -16,6 +16,7 @@ class DVMPSWSGI:
 
     def __init__(self, database=None):
         self.dvmps = DVMPSService.DVMPSService(database=database)
+        self.dvmps.cleanup_expired_images()
 
     def dvmps_app(self, environ, start_response):
         command = os.path.basename(environ['SCRIPT_NAME'])
@@ -29,8 +30,6 @@ class DVMPSWSGI:
 
         if self.dvmps is None:
             return [json.dumps({'result':False, 'error':'Internal error, DVMPS service not initialized'})]
-
-        self.dvmps.cleanup_expired_images()
 
         request_params = None
 
@@ -131,10 +130,7 @@ class DVMPSWSGI:
             if image_id is not None:
                 res = self.dvmps.image_status(image_id)
 
-        elif command == 'systemstatus':
-            res = self.dvmps.status()
-
-        elif command == 'running_images':
+        elif command in ('systemstatus', 'running_images'):
             res = self.dvmps.running_images()
 
         elif command == 'base_images':

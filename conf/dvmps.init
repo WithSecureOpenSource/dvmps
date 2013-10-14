@@ -49,6 +49,7 @@ prepare_system() {
 }
 
 start_server() {
+    mkdir -p -m 755 $DVMPS_RUN_PATH
     OPTS="-f $DVMPS_SOCKET -d $DVMPS_DATABASE -l $DVMPS_LOGFILE"
     PA_OPTS="-l $DVMPS_PLACEMENT_AGENT_LOGFILE -i $DVMPS_CLUSTER"
     start-stop-daemon --start --quiet --pidfile $DVMPS_PIDFILE \
