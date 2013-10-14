@@ -11,9 +11,12 @@ import DVMPSDAO
 import os
 import stat
 import time
+import DVMPSService
 
 dbc = DVMPSDAO.DatabaseConnection(database='dvmps')
-ali = DVMPSDAO.AllocatedImages(dbc)
+ali = DVMPSDAO.AllocatedImages(dbc) 
+dvmps = DVMPSService.DVMPSService(database='dvmps')
+
 
 def cleanup_logs():
     logdir = '/var/log/libvirt/qemu'
@@ -128,6 +131,7 @@ def cleanup_mac_ip_bindings():
             os.unlink('/var/lib/libvirt/dvmps_active/ip_mac_allocations/%s' % binding)
 
 if __name__ == "__main__":
+    dvmps.cleanup_expired_images()
     cleanup_logs()
     cleanup_libvirt()
     cleanup_images()

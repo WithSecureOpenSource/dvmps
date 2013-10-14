@@ -30,13 +30,12 @@ domain_state_str = {
 
 class DVMPSService():
     __active_dynamic_root = '/var/lib/libvirt/dvmps_active/images/'
+    __maintenance_flag_file = '/var/lib/libvirt/maintenance'
     _vm_lock = threading.Lock()
 
     def __init__(self, database=None):
         self.database = database
         self.logger = logging.getLogger('dvmps')
-        self.maintenance_mode = False
-        self.maintenance_message = ""
         self.node_placement_data = None
 
     def __cloned_disk_image_path(self, image_id):
@@ -118,6 +117,8 @@ class DVMPSService():
                 try:
                     __full_path_base_image_file = self.__base_disk_image_path(allocated_image_conf['base_image_name'])
                     __full_path_xml_template_file = self.__base_xml_template_path(allocated_image_conf['base_image_name'])
+                    __full_path_base_image_file = os.path.realpath(__full_path_base_image_file)
+                    __full_path_xml_template_file = os.path.realpath(__full_path_xml_template_file)
                     os.stat(__full_path_base_image_file)
                     os.stat(__full_path_xml_template_file)
                     full_path_base_image_file = __full_path_base_image_file
@@ -295,9 +296,14 @@ class DVMPSService():
             connection.close()
 
     def create_instance(self, base_image, valid_for, priority, comment, image_id=None, connection=None):
-        if self.maintenance_mode:
+        if os.path.isfile(self.__maintenance_flag_file):
             self.logger.info("create_instance: declining image creation in maintenance mode")
-            return { 'result': False, 'error': 'Maintenance mode - not allocating images - %s' % self.maintenance_message }
+            try:
+                with open(self.__maintenance_flag_file) as flag_f:
+                    maintenance_msg = flag_f.read()
+            except IOError:
+                maintenance_msg = ''
+            return { 'result': False, 'error': 'Maintenance mode - not allocating images - %s' % maintenance_msg }
 
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
@@ -564,17 +570,6 @@ class DVMPSService():
         connection.close()
         return ret_val
 
-    def status(self):
-        dbc = DVMPSDAO.DatabaseConnection(database=self.database)
-        ali = DVMPSDAO.AllocatedImages(dbc)
-
-        images = ali.get_images()
-        ret_val = { 'result': True, 'allocated_images': len(images) }
-        if self.maintenance_mode == True:
-            ret_val['maintenance'] = True
-            ret_val['maintenance_message'] = self.maintenance_message
-        return ret_val
-
     def running_images(self):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
         ali = DVMPSDAO.AllocatedImages(dbc)
@@ -609,9 +604,19 @@ class DVMPSService():
         return { 'result': True, 'base_images': base_images }
 
     def set_maintenance_mode(self, maintenance=True, message=''):
-        self.maintenance_mode = maintenance
-        self.maintenance_message = message
-        return { 'result': True, 'maintenance': True, 'message': message }
+        if maintenance:
+            try:
+                with open(self.__maintenance_flag_file, 'wb') as flag_f:
+                    flag_f.write(message)
+            except:
+                return { 'result': False }
+        else:
+            if os.path.isfile(self.__maintenance_flag_file):
+                try:
+                    os.unlink(self.__maintenance_flag_file)
+                except:
+                    return { 'result': False }
+        return { 'result': True, 'maintenance': maintenance, 'message': message }
 
     def get_node_images(self):
         dbc = DVMPSDAO.DatabaseConnection(database=self.database)
